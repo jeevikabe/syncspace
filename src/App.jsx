@@ -31,11 +31,10 @@ function VideoPlayer({
       videoRef.current.srcObject = stream;
       videoRef.current.play().catch((err) => console.log("Autoplay:", err));
     }
-  }, [stream, isVideoMuted, isScreen]); // Re-attach stream if component remounts
+  }, [stream, isVideoMuted, isScreen]); 
 
-  // Ensure robust check for missing streams or explicitly muted state via sockets
-  const videoTracks = stream?.getVideoTracks?.() || [];
-  const effectiveVideoMuted = isVideoMuted || !stream || videoTracks.length === 0;
+  // Absolute fallback trigger: if strictly true or no track exists
+  const effectiveVideoMuted = isVideoMuted === true || !stream || stream.getVideoTracks().length === 0;
 
   const cleanName = (username || "Peer").replace(" ( You )", "").replace(" (You)", "").trim();
   const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "P";
@@ -54,7 +53,7 @@ function VideoPlayer({
         {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
       </div>
 
-      {/* SLEDGEHAMMER FIX: Completely unmount the video tag when muted so it cannot show a black box */}
+      {/* When effectiveVideoMuted is true, the video tag is completely destroyed, guaranteeing the avatar shows */}
       {!effectiveVideoMuted || isScreen ? (
         <video
           ref={videoRef}
@@ -156,7 +155,7 @@ export default function App() {
     return () => socketRef.current?.disconnect();
   }, [token]);
 
-  // GUARANTEED STATE SYNC: Send media state heartbeat every 3 seconds to auto-heal dropped socket events
+  // Aggressive Heartbeat to ensure states sync automatically
   useEffect(() => {
     if (!joined || !socketRef.current) return;
     const heartbeat = setInterval(() => {
@@ -166,7 +165,7 @@ export default function App() {
         isAudioMuted: audioMuted,
         isVideoMuted: videoMuted,
       });
-    }, 3000);
+    }, 2500);
     return () => clearInterval(heartbeat);
   }, [joined, audioMuted, videoMuted, roomId]);
 
@@ -210,8 +209,8 @@ export default function App() {
             ...current,
             username: targetUsername || current.username || "Peer",
             stream: remoteStream,
-            isAudioMuted: current.isAudioMuted ?? false,
-            isVideoMuted: current.isVideoMuted ?? false,
+            isAudioMuted: Boolean(current.isAudioMuted),
+            isVideoMuted: Boolean(current.isVideoMuted),
           },
         };
       });
@@ -266,8 +265,8 @@ export default function App() {
             [u.socketId]: {
               ...(prev[u.socketId] || {}),
               username: u.username || "Peer",
-              isAudioMuted: u.isAudioMuted || false,
-              isVideoMuted: u.isVideoMuted || false,
+              isAudioMuted: Boolean(u.isAudioMuted),
+              isVideoMuted: Boolean(u.isVideoMuted),
             },
           }));
           const pc = createPeerConnection(u.socketId, u.username);
@@ -283,8 +282,8 @@ export default function App() {
           [socketId]: {
             ...(prev[socketId] || {}),
             username: newUsername || "Peer",
-            isAudioMuted: isAudioMuted || false,
-            isVideoMuted: isVideoMuted || false,
+            isAudioMuted: Boolean(isAudioMuted),
+            isVideoMuted: Boolean(isVideoMuted),
           },
         }));
         createPeerConnection(socketId, newUsername);
@@ -317,26 +316,20 @@ export default function App() {
         }
       });
 
+      // SLEDGEHAMMER FIX: Force React update without equality checks, ensuring state applies instantly
       socket.on("media-state-change", (data) => {
-        const targetId = data.socketId || data.userId || data.id;
-        if (!targetId || targetId === socket.id) return;
+        const targetId = data.socketId;
+        if (!targetId || targetId === socketRef.current.id) return;
 
-        setRemoteStreams((prev) => {
-          const existing = prev[targetId] || {};
-          // Only trigger a React re-render if the state genuinely changed
-          if (existing.isAudioMuted === data.isAudioMuted && existing.isVideoMuted === data.isVideoMuted) {
-            return prev;
-          }
-          return {
-            ...prev,
-            [targetId]: {
-              ...existing,
-              username: existing.username || data.username || "Peer",
-              isAudioMuted: data.isAudioMuted,
-              isVideoMuted: data.isVideoMuted,
-            },
-          };
-        });
+        setRemoteStreams((prev) => ({
+          ...prev,
+          [targetId]: {
+            ...(prev[targetId] || {}),
+            username: data.username || prev[targetId]?.username || "Peer",
+            isAudioMuted: Boolean(data.isAudioMuted),
+            isVideoMuted: Boolean(data.isVideoMuted),
+          },
+        }));
       });
 
       socket.on("user-left", (socketId) => {

@@ -32,8 +32,8 @@ io.on("connection", (socket) => {
       .map((id) => ({
         socketId: id,
         username: socketRoomMap[id]?.username || "Peer",
-        isAudioMuted: socketRoomMap[id]?.isAudioMuted || false,
-        isVideoMuted: socketRoomMap[id]?.isVideoMuted || false,
+        isAudioMuted: Boolean(socketRoomMap[id]?.isAudioMuted),
+        isVideoMuted: Boolean(socketRoomMap[id]?.isVideoMuted),
       }));
 
     socket.emit("all-users", otherUsers);
@@ -59,15 +59,15 @@ io.on("connection", (socket) => {
 
   socket.on("media-state-change", (data) => {
     if (socketRoomMap[socket.id]) {
-      socketRoomMap[socket.id].isAudioMuted = data.isAudioMuted;
-      socketRoomMap[socket.id].isVideoMuted = data.isVideoMuted;
+      socketRoomMap[socket.id].isAudioMuted = Boolean(data.isAudioMuted);
+      socketRoomMap[socket.id].isVideoMuted = Boolean(data.isVideoMuted);
     }
 
     const payload = {
       socketId: socket.id,
       username: socketRoomMap[socket.id]?.username || socket.username || "Peer",
-      isAudioMuted: data.isAudioMuted,
-      isVideoMuted: data.isVideoMuted,
+      isAudioMuted: Boolean(data.isAudioMuted),
+      isVideoMuted: Boolean(data.isVideoMuted),
     };
     socket.to(data.roomId).emit("media-state-change", payload);
   });
