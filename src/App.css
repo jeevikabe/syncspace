@@ -174,6 +174,26 @@ body, html, #root {
 
 .screen-badge { background: rgba(2, 132, 199, 0.85); }
 
+/* Teams-style Mic Overlay Badge */
+.mic-status-overlay {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 10;
+}
+.mic-status-overlay.muted {
+  background: rgba(239, 68, 68, 0.85);
+  border-color: #ef4444;
+}
+
 /* Fallback Avatar Styling */
 .avatar-fallback {
   display: flex;
@@ -218,6 +238,7 @@ body, html, #root {
 
 .dock-btn-muted { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; }
 .dock-btn-sharing { background: rgba(234, 179, 8, 0.2); border-color: #eab308; }
+.dock-btn-disabled { background: #1e293b; border-color: #334155; color: #64748b; cursor: not-allowed; opacity: 0.6; }
 .dock-btn-leave { background: #dc2626; border-color: #ef4444; font-weight: 600; }
 
 /* Side Suite Area */
@@ -283,5 +304,4 @@ body, html, #root {
     justify-content: space-around; padding: 6px 12px;
   }
   .leave-text { display: none; }
-  .user-pill-name { max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }

@@ -33,7 +33,7 @@ const RTC_CONFIG = {
   ],
 };
 
-function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVideoMuted = false }) {
+function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVideoMuted = false, isAudioMuted = false }) {
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -56,6 +56,11 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
           <span>{username}</span>
         </div>
         {isScreen && <span className="screen-badge">Sharing Screen</span>}
+      </div>
+
+      {/* Teams-Style Mic Indicator Badge */}
+      <div className={`mic-status-overlay ${isAudioMuted ? "muted" : ""}`}>
+        {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
       </div>
 
       <video
@@ -102,8 +107,9 @@ export default function App() {
   // UI Active Tabs (Responsive Support)
   const [activeTab, setActiveTab] = useState("whiteboard");
   const [mobileView, setMobileView] = useState("video"); // 'video' | 'suite'
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
 
-  // Remote streams: socketId -> { username, stream }
+  // Remote streams: socketId -> { username, stream, audioMuted, videoMuted }
   const [remoteStreams, setRemoteStreams] = useState({});
 
   // Operational Refs
@@ -112,10 +118,15 @@ export default function App() {
   const cameraStreamRef = useRef(null);
   const currentStreamRef = useRef(null);
 
-  // Whiteboard Canvas State Persistence
+  // Whiteboard Canvas State
   const canvasRef = useRef();
   const offscreenCanvasRef = useRef(null);
   const isDrawing = useRef(false);
+
+  useEffect(() => {
+    const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    setIsMobileDevice(checkMobile);
+  }, []);
 
   useEffect(() => {
     window.history.pushState(null, "", window.location.href);
@@ -229,6 +240,7 @@ export default function App() {
       setRemoteStreams((prev) => ({
         ...prev,
         [targetSocketId]: {
+          ...prev[targetSocketId],
           username: targetUsername || prev[targetSocketId]?.username || "Peer",
           stream: remoteStream,
         },
@@ -237,7 +249,6 @@ export default function App() {
 
     pc.oniceconnectionstatechange = () => {
       if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
-        console.warn(`ICE state for ${targetSocketId} is ${pc.iceConnectionState}, attempting restart...`);
         pc.restartIce();
       } else if (pc.iceConnectionState === "closed") {
         removePeer(targetSocketId);
@@ -276,6 +287,7 @@ export default function App() {
       socket.off("answer");
       socket.off("ice-candidate");
       socket.off("user-left");
+      socket.off("media-state-change");
 
       socket.on("all-users", async (users) => {
         for (const u of users) {
@@ -326,6 +338,20 @@ export default function App() {
         }
       });
 
+      socket.on("media-state-change", ({ socketId, isAudioMuted, isVideoMuted }) => {
+        setRemoteStreams((prev) => {
+          if (!prev[socketId]) return prev;
+          return {
+            ...prev,
+            [socketId]: {
+              ...prev[socketId],
+              ...(isAudioMuted !== undefined && { isAudioMuted }),
+              ...(isVideoMuted !== undefined && { isVideoMuted }),
+            },
+          };
+        });
+      });
+
       socket.on("user-left", (socketId) => removePeer(socketId));
       socket.on("draw-line", (draw) => drawLineOnCanvas(draw.x0, draw.y0, draw.x1, draw.y1, draw.color, false));
       socket.on("clear-canvas", () => clearCanvas(false));
@@ -339,47 +365,48 @@ export default function App() {
   const toggleAudio = () => {
     const track = currentStreamRef.current?.getAudioTracks()[0];
     if (track) {
-      track.enabled = !track.enabled;
-      setAudioMuted(!track.enabled);
+      const nextState = !audioMuted;
+      track.enabled = !nextState;
+      setAudioMuted(nextState);
+
+      if (socketRef.current) {
+        socketRef.current.emit("media-state-change", { roomId, isAudioMuted: nextState });
+      }
     }
   };
 
   const toggleVideo = () => {
     const track = currentStreamRef.current?.getVideoTracks()[0];
     if (track) {
-      track.enabled = !track.enabled;
-      setVideoMuted(!track.enabled);
-    }
-  };
+      const nextState = !videoMuted;
+      track.enabled = !nextState;
+      setVideoMuted(nextState);
 
-  const reNegotiatePeers = async () => {
-    const socket = socketRef.current;
-    if (!socket) return;
-    for (const peerId of Object.keys(peerConnections.current)) {
-      const pc = peerConnections.current[peerId];
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      socket.emit("offer", {
-        target: peerId,
-        callerUsername: username,
-        sdp: pc.localDescription,
-      });
+      if (socketRef.current) {
+        socketRef.current.emit("media-state-change", { roomId, isVideoMuted: nextState });
+      }
     }
   };
 
   const toggleScreenShare = async () => {
+    if (isMobileDevice) {
+      alert("Screen sharing is not supported on mobile web browsers.");
+      return;
+    }
+
     if (!isScreenSharing) {
       try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const screenTrack = screenStream.getVideoTracks()[0];
 
-        Object.keys(peerConnections.current).forEach(async (peerId) => {
+        // Replace track across all peer connections
+        for (const peerId of Object.keys(peerConnections.current)) {
           const pc = peerConnections.current[peerId];
           const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
           if (sender) {
             await sender.replaceTrack(screenTrack);
           }
-        });
+        }
 
         const combinedStream = new MediaStream([
           screenTrack,
@@ -388,11 +415,10 @@ export default function App() {
         currentStreamRef.current = combinedStream;
         setLocalStream(combinedStream);
         setIsScreenSharing(true);
-        reNegotiatePeers();
 
         screenTrack.onended = () => stopScreenShare();
       } catch (err) {
-        console.error("Screen sharing failed:", err);
+        console.error("Screen sharing error:", err);
       }
     } else {
       stopScreenShare();
@@ -403,19 +429,18 @@ export default function App() {
     const cameraVideoTrack = cameraStreamRef.current?.getVideoTracks()[0];
 
     if (cameraVideoTrack) {
-      Object.keys(peerConnections.current).forEach(async (peerId) => {
+      for (const peerId of Object.keys(peerConnections.current)) {
         const pc = peerConnections.current[peerId];
         const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
         if (sender) {
           await sender.replaceTrack(cameraVideoTrack);
         }
-      });
+      }
     }
 
     currentStreamRef.current = cameraStreamRef.current;
     setLocalStream(cameraStreamRef.current);
     setIsScreenSharing(false);
-    reNegotiatePeers();
   };
 
   const handleFileUpload = (e) => {
@@ -667,6 +692,7 @@ export default function App() {
                   isSelf={true}
                   isScreen={isScreenSharing}
                   isVideoMuted={videoMuted}
+                  isAudioMuted={audioMuted}
                 />
 
                 {Object.entries(remoteStreams).map(([id, remote]) => (
@@ -675,6 +701,8 @@ export default function App() {
                     stream={remote.stream}
                     username={remote.username}
                     isSelf={false}
+                    isVideoMuted={remote.isVideoMuted}
+                    isAudioMuted={remote.isAudioMuted}
                   />
                 ))}
               </div>
@@ -698,8 +726,14 @@ export default function App() {
 
                 <button
                   onClick={toggleScreenShare}
-                  className={isScreenSharing ? "dock-btn-sharing" : "dock-btn-active"}
-                  title={isScreenSharing ? "Stop Screen Share" : "Share Screen"}
+                  className={
+                    isMobileDevice 
+                      ? "dock-btn-disabled" 
+                      : isScreenSharing 
+                        ? "dock-btn-sharing" 
+                        : "dock-btn-active"
+                  }
+                  title={isMobileDevice ? "Not supported on mobile" : isScreenSharing ? "Stop Screen Share" : "Share Screen"}
                 >
                   {isScreenSharing ? <StopCircle size={20} color="#fef08a" /> : <ScreenShare size={20} color="#f8fafc" />}
                 </button>
