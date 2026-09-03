@@ -472,7 +472,7 @@ body {
   gap: 16px;
   padding: 20px;
   overflow-y: auto;
-  align-content: start;
+  align-content: center;
   justify-items: center;
   padding-bottom: 100px;
 }
@@ -867,7 +867,7 @@ body {
   box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
 }
 
-/* Responsive Mobile Layout Fixes (Unchanged Laptop UI) */
+/* Mobile Responsive Overrides */
 @media (max-width: 900px) {
   .mobile-view-toggle {
     display: flex;
