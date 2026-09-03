@@ -53,19 +53,6 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
     }
   }, [stream]);
 
-  const videoTracks = stream?.getVideoTracks?.() ?? [];
-  const audioTracks = stream?.getAudioTracks?.() ?? [];
-
-  const effectiveVideoMuted =
-    isVideoMuted ||
-    videoTracks.some((track) => track.readyState === "live" && track.enabled === false) ||
-    videoTracks.length === 0;
-
-  const effectiveAudioMuted =
-    isAudioMuted ||
-    audioTracks.some((track) => track.readyState === "live" && track.enabled === false) ||
-    audioTracks.length === 0;
-
   const cleanName = (username || "User").replace(" ( You )", "").trim();
   const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "U";
 
@@ -79,8 +66,8 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
         {isScreen && <span className="screen-badge">Sharing Screen</span>}
       </div>
 
-      <div className={`mic-status-overlay ${effectiveAudioMuted ? "muted" : ""}`}>
-        {effectiveAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
+      <div className={`mic-status-overlay ${isAudioMuted ? "muted" : ""}`}>
+        {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
       </div>
 
       <video
@@ -89,11 +76,11 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
         playsInline
         webkit-playsinline="true"
         muted={isSelf}
-        style={{ display: effectiveVideoMuted ? "none" : "block" }}
+        style={{ display: isVideoMuted && !isScreen ? "none" : "block" }}
         className={isScreen ? "screen-stream" : "video-stream"}
       />
 
-      {effectiveVideoMuted && (
+      {isVideoMuted && !isScreen && (
         <div className="avatar-fallback">
           <div className="avatar-circle">{initial}</div>
           <span className="avatar-name">{username || "Peer"}</span>
@@ -332,7 +319,7 @@ export default function App() {
       setJoined(true);
 
       const socket = socketRef.current;
-      socket.emit("join-room", roomId);
+      socket.emit("join-room", { roomId, username });
 
       socket.off("all-users");
       socket.off("user-connected");
@@ -352,6 +339,8 @@ export default function App() {
             [u.socketId]: {
               ...(prev[u.socketId] || {}),
               username: u.username || "Peer",
+              isAudioMuted: u.isAudioMuted || false,
+              isVideoMuted: u.isVideoMuted || false,
             },
           }));
 
@@ -367,12 +356,14 @@ export default function App() {
         }
       });
 
-      socket.on("user-connected", ({ socketId, username: newUsername }) => {
+      socket.on("user-connected", ({ socketId, username: newUsername, isAudioMuted, isVideoMuted }) => {
         setRemoteStreams((prev) => ({
           ...prev,
           [socketId]: {
             ...(prev[socketId] || {}),
             username: newUsername || "Peer",
+            isAudioMuted: isAudioMuted || false,
+            isVideoMuted: isVideoMuted || false,
           },
         }));
         createPeerConnection(socketId, newUsername);
@@ -429,7 +420,6 @@ export default function App() {
             ...prev,
             [targetId]: {
               ...existing,
-              stream: existing.stream,
               username: existing.username || "Peer",
               isAudioMuted:
                 data.isAudioMuted !== undefined ? data.isAudioMuted : existing.isAudioMuted ?? false,
