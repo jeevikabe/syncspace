@@ -1,3 +1,6 @@
+/* ==========================================
+   GLOBAL RESET & LAPTOP FIXES
+   ========================================== */
 #root {
   max-width: 100%;
   margin: 0;
@@ -16,7 +19,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Scrollbars */
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -29,7 +32,7 @@ body {
   border-radius: 4px;
 }
 
-/* Main Layout */
+/* App Main Layout Structure */
 .app-container {
   display: flex;
   flex-direction: column;
@@ -48,18 +51,6 @@ body {
   border-bottom: 1px solid #1e293b;
 }
 
-.brand-title {
-  font-weight: 700;
-  font-size: 18px;
-}
-
-.room-badge {
-  background: #1e293b;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-
 .workspace-container {
   display: flex;
   flex: 1;
@@ -70,7 +61,7 @@ body {
   box-sizing: border-box;
 }
 
-/* Video Stage Area */
+/* Stage Area (Video Grid + Floating Controls) */
 .stage-area {
   flex: 1;
   display: flex;
@@ -123,21 +114,7 @@ body {
   z-index: 50;
 }
 
-.floating-dock-bar button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 20px;
-  background: #2563eb;
-  color: white;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.floating-dock-bar button.leave-btn {
-  background: #dc2626;
-}
-
-/* Side Suite Area */
+/* Side Suite (Whiteboard & Files Container) */
 .side-suite {
   width: 380px;
   height: 100%;
@@ -149,29 +126,8 @@ body {
   overflow: hidden;
 }
 
-.side-suite-header {
-  display: flex;
-  border-bottom: 1px solid #1e293b;
-}
-
-.side-suite-header button {
-  flex: 1;
-  padding: 12px;
-  border: none;
-  background: transparent;
-  color: #94a3b8;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.side-suite-header button.active {
-  color: white;
-  border-bottom: 2px solid #2563eb;
-  background: rgba(255, 255, 255, 0.03);
-}
-
 .mobile-view-tabs {
-  display: none;
+  display: none; /* Hidden on Desktop/Laptop */
 }
 
 /* ==========================================
@@ -188,6 +144,16 @@ body {
     min-height: 100vh;
   }
 
+  .navbar-container {
+    padding: 8px 12px !important;
+    height: auto !important;
+  }
+
+  .user-pill-name {
+    display: none !important;
+  }
+
+  /* Mobile Navigation Switcher Bar */
   .mobile-view-tabs {
     display: flex !important;
     justify-content: space-around;
@@ -217,6 +183,7 @@ body {
     color: #ffffff;
   }
 
+  /* Dynamic Tab Views for Mobile */
   .workspace-container {
     flex-direction: column !important;
     height: auto !important;
@@ -224,6 +191,7 @@ body {
     padding: 10px !important;
   }
 
+  /* Hide/Show based on selected mobile tab state */
   .workspace-container.show-video .side-suite {
     display: none !important;
   }
