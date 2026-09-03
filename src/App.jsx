@@ -1,24 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
-  Video,
-  Mic,
-  MicOff,
-  VideoOff,
-  ScreenShare,
-  StopCircle,
-  Paperclip,
-  Download,
-  Trash2,
-  User,
-  LogOut,
-  Edit3,
-  FileText,
-  Zap,
-  AlertTriangle,
-  PhoneOff,
-  Eye,
-  EyeOff,
+  Video, Mic, MicOff, VideoOff, ScreenShare, StopCircle,
+  Paperclip, Download, Trash2, User, LogOut, Edit3, FileText,
+  Zap, AlertTriangle, PhoneOff, Eye, EyeOff
 } from "lucide-react";
 import "./App.css";
 
@@ -40,84 +25,19 @@ function VideoPlayer({
   isAudioMuted = false,
 }) {
   const videoRef = useRef(null);
-  const [trackMutedState, setTrackMutedState] = useState({
-    video: false,
-    audio: false,
-  });
 
   useEffect(() => {
-    const videoObj = videoRef.current;
-    if (videoObj && stream) {
-      videoObj.srcObject = stream;
-      videoObj.play().catch(() => {
-        videoObj.muted = true;
-        videoObj.play().catch((err) => console.error("Autoplay blocked:", err));
-      });
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch((err) => console.log("Autoplay:", err));
     }
-  }, [stream]);
+  }, [stream, isVideoMuted, isScreen]); // Re-attach stream if component remounts
 
-  // Track native WebRTC mute/unmute events on incoming tracks
-  useEffect(() => {
-    if (!stream) return;
+  // Ensure robust check for missing streams or explicitly muted state via sockets
+  const videoTracks = stream?.getVideoTracks?.() || [];
+  const effectiveVideoMuted = isVideoMuted || !stream || videoTracks.length === 0;
 
-    const vTrack = stream.getVideoTracks()[0];
-    const aTrack = stream.getAudioTracks()[0];
-
-    const syncTrackState = () => {
-      setTrackMutedState({
-        video: !vTrack || !vTrack.enabled || vTrack.muted,
-        audio: !aTrack || !aTrack.enabled || aTrack.muted,
-      });
-    };
-
-    syncTrackState();
-
-    if (vTrack) {
-      vTrack.onmute = syncTrackState;
-      vTrack.onunmute = syncTrackState;
-      vTrack.onended = syncTrackState;
-    }
-    if (aTrack) {
-      aTrack.onmute = syncTrackState;
-      aTrack.onunmute = syncTrackState;
-      aTrack.onended = syncTrackState;
-    }
-
-    return () => {
-      if (vTrack) {
-        vTrack.onmute = null;
-        vTrack.onunmute = null;
-        vTrack.onended = null;
-      }
-      if (aTrack) {
-        aTrack.onmute = null;
-        aTrack.onunmute = null;
-        aTrack.onended = null;
-      }
-    };
-  }, [stream]);
-
-  const videoTracks = stream?.getVideoTracks?.() ?? [];
-  const audioTracks = stream?.getAudioTracks?.() ?? [];
-
-  const effectiveVideoMuted =
-    isVideoMuted ||
-    !stream ||
-    videoTracks.length === 0 ||
-    trackMutedState.video ||
-    videoTracks.some((t) => !t.enabled || t.muted);
-
-  const effectiveAudioMuted =
-    isAudioMuted ||
-    !stream ||
-    audioTracks.length === 0 ||
-    trackMutedState.audio ||
-    audioTracks.some((t) => !t.enabled || t.muted);
-
-  const cleanName = (username || "Peer")
-    .replace(" ( You )", "")
-    .replace(" (You)", "")
-    .trim();
+  const cleanName = (username || "Peer").replace(" ( You )", "").replace(" (You)", "").trim();
   const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "P";
 
   return (
@@ -130,24 +50,20 @@ function VideoPlayer({
         {isScreen && <span className="screen-badge">Sharing Screen</span>}
       </div>
 
-      <div className={`mic-status-overlay ${effectiveAudioMuted ? "muted" : ""}`}>
-        {effectiveAudioMuted ? (
-          <MicOff size={14} color="#ffffff" />
-        ) : (
-          <Mic size={14} color="#10b981" />
-        )}
+      <div className={`mic-status-overlay ${isAudioMuted ? "muted" : ""}`}>
+        {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
       </div>
 
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted={isSelf}
-        style={{ display: effectiveVideoMuted && !isScreen ? "none" : "block" }}
-        className={isScreen ? "screen-stream" : "video-stream"}
-      />
-
-      {effectiveVideoMuted && !isScreen && (
+      {/* SLEDGEHAMMER FIX: Completely unmount the video tag when muted so it cannot show a black box */}
+      {!effectiveVideoMuted || isScreen ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={isSelf}
+          className={isScreen ? "screen-stream" : "video-stream"}
+        />
+      ) : (
         <div className="avatar-fallback">
           <div className="avatar-circle">{initial}</div>
           <span className="avatar-name">{cleanName || "Peer"}</span>
@@ -184,17 +100,12 @@ export default function App() {
   const peerConnections = useRef({});
   const cameraStreamRef = useRef(null);
   const currentStreamRef = useRef(null);
-
   const canvasRef = useRef();
   const offscreenCanvasRef = useRef(null);
   const isDrawing = useRef(false);
 
   useEffect(() => {
-    setIsMobileDevice(
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      )
-    );
+    setIsMobileDevice(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
   }, []);
 
   useEffect(() => {
@@ -245,6 +156,20 @@ export default function App() {
     return () => socketRef.current?.disconnect();
   }, [token]);
 
+  // GUARANTEED STATE SYNC: Send media state heartbeat every 3 seconds to auto-heal dropped socket events
+  useEffect(() => {
+    if (!joined || !socketRef.current) return;
+    const heartbeat = setInterval(() => {
+      socketRef.current.emit("media-state-change", {
+        roomId,
+        socketId: socketRef.current.id,
+        isAudioMuted: audioMuted,
+        isVideoMuted: videoMuted,
+      });
+    }, 3000);
+    return () => clearInterval(heartbeat);
+  }, [joined, audioMuted, videoMuted, roomId]);
+
   const removePeer = (targetSocketId) => {
     if (peerConnections.current[targetSocketId]) {
       peerConnections.current[targetSocketId].close();
@@ -258,9 +183,7 @@ export default function App() {
   };
 
   const createPeerConnection = (targetSocketId, targetUsername) => {
-    if (peerConnections.current[targetSocketId]) {
-      return peerConnections.current[targetSocketId];
-    }
+    if (peerConnections.current[targetSocketId]) return peerConnections.current[targetSocketId];
 
     const pc = new RTCPeerConnection(RTC_CONFIG);
     peerConnections.current[targetSocketId] = pc;
@@ -273,10 +196,7 @@ export default function App() {
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
-        socketRef.current.emit("ice-candidate", {
-          target: targetSocketId,
-          candidate: event.candidate,
-        });
+        socketRef.current.emit("ice-candidate", { target: targetSocketId, candidate: event.candidate });
       }
     };
 
@@ -308,8 +228,7 @@ export default function App() {
 
   const leaveRoom = () => {
     if (socketRef.current && joined) socketRef.current.emit("leave-room", roomId);
-    if (cameraStreamRef.current)
-      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+    if (cameraStreamRef.current) cameraStreamRef.current.getTracks().forEach((t) => t.stop());
     Object.keys(peerConnections.current).forEach((id) => removePeer(id));
     setLocalStream(null);
     setJoined(false);
@@ -351,33 +270,25 @@ export default function App() {
               isVideoMuted: u.isVideoMuted || false,
             },
           }));
-
           const pc = createPeerConnection(u.socketId, u.username);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
-          socket.emit("offer", {
-            target: u.socketId,
-            callerUsername: username,
-            sdp: pc.localDescription,
-          });
+          socket.emit("offer", { target: u.socketId, callerUsername: username, sdp: pc.localDescription });
         }
       });
 
-      socket.on(
-        "user-connected",
-        ({ socketId, username: newUsername, isAudioMuted, isVideoMuted }) => {
-          setRemoteStreams((prev) => ({
-            ...prev,
-            [socketId]: {
-              ...(prev[socketId] || {}),
-              username: newUsername || "Peer",
-              isAudioMuted: isAudioMuted || false,
-              isVideoMuted: isVideoMuted || false,
-            },
-          }));
-          createPeerConnection(socketId, newUsername);
-        }
-      );
+      socket.on("user-connected", ({ socketId, username: newUsername, isAudioMuted, isVideoMuted }) => {
+        setRemoteStreams((prev) => ({
+          ...prev,
+          [socketId]: {
+            ...(prev[socketId] || {}),
+            username: newUsername || "Peer",
+            isAudioMuted: isAudioMuted || false,
+            isVideoMuted: isVideoMuted || false,
+          },
+        }));
+        createPeerConnection(socketId, newUsername);
+      });
 
       socket.on("offer", async ({ callerId, callerUsername, sdp }) => {
         setRemoteStreams((prev) => ({
@@ -402,9 +313,7 @@ export default function App() {
       socket.on("ice-candidate", async ({ callerId, candidate }) => {
         const pc = peerConnections.current[callerId];
         if (pc && candidate) {
-          try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          } catch (e) {}
+          try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
         }
       });
 
@@ -414,13 +323,17 @@ export default function App() {
 
         setRemoteStreams((prev) => {
           const existing = prev[targetId] || {};
+          // Only trigger a React re-render if the state genuinely changed
+          if (existing.isAudioMuted === data.isAudioMuted && existing.isVideoMuted === data.isVideoMuted) {
+            return prev;
+          }
           return {
             ...prev,
             [targetId]: {
               ...existing,
               username: existing.username || data.username || "Peer",
-              isAudioMuted: data.isAudioMuted ?? existing.isAudioMuted ?? false,
-              isVideoMuted: data.isVideoMuted ?? existing.isVideoMuted ?? false,
+              isAudioMuted: data.isAudioMuted,
+              isVideoMuted: data.isVideoMuted,
             },
           };
         });
@@ -436,16 +349,12 @@ export default function App() {
         removePeer(socketId);
       });
 
-      socket.on("draw-line", (d) =>
-        drawLineOnCanvas(d.x0, d.y0, d.x1, d.y1, d.color, false)
-      );
+      socket.on("draw-line", (d) => drawLineOnCanvas(d.x0, d.y0, d.x1, d.y1, d.color, false));
       socket.on("clear-canvas", () => clearCanvas(false));
       socket.on("receive-file", (f) => {
         setReceivedFiles((prev) => {
           if (prev.some((item) => item.id === f.id)) return prev;
-          const url = URL.createObjectURL(
-            new Blob([f.fileData], { type: f.fileType })
-          );
+          const url = URL.createObjectURL(new Blob([f.fileData], { type: f.fileType }));
           return [...prev, { ...f, url, isImage: f.fileType.startsWith("image/") }];
         });
       });
@@ -491,22 +400,15 @@ export default function App() {
         return;
       }
       try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-        });
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const screenTrack = screenStream.getVideoTracks()[0];
 
         Object.keys(peerConnections.current).forEach(async (peerId) => {
-          const sender = peerConnections.current[peerId]
-            .getSenders()
-            .find((s) => s.track?.kind === "video");
+          const sender = peerConnections.current[peerId].getSenders().find((s) => s.track?.kind === "video");
           if (sender) await sender.replaceTrack(screenTrack);
         });
 
-        currentStreamRef.current = new MediaStream([
-          screenTrack,
-          ...cameraStreamRef.current.getAudioTracks(),
-        ]);
+        currentStreamRef.current = new MediaStream([screenTrack, ...cameraStreamRef.current.getAudioTracks()]);
         setLocalStream(currentStreamRef.current);
         setIsScreenSharing(true);
         screenTrack.onended = stopScreenShare;
@@ -520,9 +422,7 @@ export default function App() {
     const cameraVideoTrack = cameraStreamRef.current?.getVideoTracks()[0];
     if (cameraVideoTrack) {
       Object.keys(peerConnections.current).forEach(async (peerId) => {
-        const sender = peerConnections.current[peerId]
-          .getSenders()
-          .find((s) => s.track?.kind === "video");
+        const sender = peerConnections.current[peerId].getSenders().find((s) => s.track?.kind === "video");
         if (sender) await sender.replaceTrack(cameraVideoTrack);
       });
     }
@@ -546,11 +446,7 @@ export default function App() {
       socketRef.current?.emit("send-file", { roomId, fileObj });
       setReceivedFiles((prev) => [
         ...prev,
-        {
-          ...fileObj,
-          url: URL.createObjectURL(file),
-          isImage: file.type.startsWith("image/"),
-        },
+        { ...fileObj, url: URL.createObjectURL(file), isImage: file.type.startsWith("image/") },
       ]);
     };
     reader.readAsArrayBuffer(file);
@@ -580,11 +476,7 @@ export default function App() {
       ctx.stroke();
       ctx.closePath();
     });
-    if (emit)
-      socketRef.current?.emit("draw-line", {
-        roomId,
-        drawData: { x0, y0, x1, y1, color },
-      });
+    if (emit) socketRef.current?.emit("draw-line", { roomId, drawData: { x0, y0, x1, y1, color } });
   };
 
   const clearCanvas = (emit = true) => {
@@ -610,50 +502,20 @@ export default function App() {
           <form onSubmit={handleAuth} className="form-stack">
             <div className="input-group">
               <label className="label">Username</label>
-              <input
-                type="text"
-                placeholder="Username"
-                value={authInputUser}
-                onChange={(e) => setAuthInputUser(e.target.value)}
-                className="input"
-                required
-              />
+              <input type="text" placeholder="Username" value={authInputUser} onChange={(e) => setAuthInputUser(e.target.value)} className="input" required />
             </div>
             <div className="input-group">
               <label className="label">Password</label>
               <div style={{ position: "relative", width: "100%" }}>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={authInputPass}
-                  onChange={(e) => setAuthInputPass(e.target.value)}
-                  className="input"
-                  style={{ width: "100%", paddingRight: "40px" }}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="eye-btn"
-                >
-                  {showPassword ? (
-                    <EyeOff size={18} color="#94a3b8" />
-                  ) : (
-                    <Eye size={18} color="#94a3b8" />
-                  )}
+                <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={authInputPass} onChange={(e) => setAuthInputPass(e.target.value)} className="input" style={{ width: "100%", paddingRight: "40px" }} required />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn">
+                  {showPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
                 </button>
               </div>
             </div>
-            <button type="submit" className="primary-auth-btn">
-              {isRegistering ? "Register" : "Sign In"}
-            </button>
-            <div
-              className="toggle-text"
-              onClick={() => setIsRegistering(!isRegistering)}
-            >
-              {isRegistering
-                ? "Already have an account? Sign In"
-                : "Need account? Register"}
+            <button type="submit" className="primary-auth-btn">{isRegistering ? "Register" : "Sign In"}</button>
+            <div className="toggle-text" onClick={() => setIsRegistering(!isRegistering)}>
+              {isRegistering ? "Already have an account? Sign In" : "Need account? Register"}
             </div>
           </form>
         </div>
@@ -665,12 +527,8 @@ export default function App() {
     <div className="app-wrapper">
       <header className="navbar-container">
         <div className="brand-group">
-          <div className="logo-icon-small">
-            <Zap size={18} color="#38bdf8" />
-          </div>
-          <span className="brand-title">
-            SyncSpace <span className="brand-highlight">Studio</span>
-          </span>
+          <div className="logo-icon-small"><Zap size={18} color="#38bdf8" /></div>
+          <span className="brand-title">SyncSpace <span className="brand-highlight">Studio</span></span>
         </div>
         {joined && (
           <div className="room-status-badge">
@@ -678,21 +536,13 @@ export default function App() {
           </div>
         )}
         <div className="user-controls">
-          <div className="user-pill">
-            <User size={14} color="#a1a1aa" />
-            <span className="user-name">{username}</span>
-          </div>
-          <button onClick={() => setShowLogoutDialog(true)} className="logout-btn">
-            <LogOut size={16} />
-          </button>
+          <div className="user-pill"><User size={14} color="#a1a1aa" /><span className="user-name">{username}</span></div>
+          <button onClick={() => setShowLogoutDialog(true)} className="logout-btn"><LogOut size={16} /></button>
         </div>
       </header>
 
       {notification && (
-        <div className="teams-toast-banner">
-          <AlertTriangle size={16} color="#f59e0b" />
-          <span>{notification}</span>
-        </div>
+        <div className="teams-toast-banner"><AlertTriangle size={16} color="#f59e0b" /><span>{notification}</span></div>
       )}
 
       {showLogoutDialog && (
@@ -701,15 +551,8 @@ export default function App() {
             <h3 className="dialog-title">Confirm Logout</h3>
             <p className="dialog-text">Are you sure you want to sign out?</p>
             <div className="dialog-actions">
-              <button
-                onClick={() => setShowLogoutDialog(false)}
-                className="cancel-btn"
-              >
-                Cancel
-              </button>
-              <button onClick={confirmLogout} className="confirm-logout-btn">
-                Logout
-              </button>
+              <button onClick={() => setShowLogoutDialog(false)} className="cancel-btn">Cancel</button>
+              <button onClick={confirmLogout} className="confirm-logout-btn">Logout</button>
             </div>
           </div>
         </div>
@@ -720,15 +563,8 @@ export default function App() {
           <div className="hero-card">
             <h1 className="hero-title">Join Video Session</h1>
             <div className="join-input-stack">
-              <input
-                type="text"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                className="hero-input"
-              />
-              <button onClick={joinRoom} className="hero-join-btn">
-                Launch Session
-              </button>
+              <input type="text" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="hero-input" />
+              <button onClick={joinRoom} className="hero-join-btn">Launch Session</button>
             </div>
           </div>
         </main>
@@ -736,107 +572,43 @@ export default function App() {
         <div className="workspace-layout show-video">
           <div className="stage-area">
             <div className="video-grid">
-              <VideoPlayer
-                stream={localStream}
-                username={`${username} ( You )`}
-                isSelf={true}
-                isScreen={isScreenSharing}
-                isVideoMuted={videoMuted}
-                isAudioMuted={audioMuted}
-              />
+              <VideoPlayer stream={localStream} username={`${username} ( You )`} isSelf={true} isScreen={isScreenSharing} isVideoMuted={videoMuted} isAudioMuted={audioMuted} />
               {Object.entries(remoteStreams).map(([id, remote]) => (
-                <VideoPlayer
-                  key={id}
-                  stream={remote.stream}
-                  username={remote.username}
-                  isSelf={false}
-                  isVideoMuted={remote.isVideoMuted}
-                  isAudioMuted={remote.isAudioMuted}
-                />
+                <VideoPlayer key={id} stream={remote.stream} username={remote.username} isSelf={false} isVideoMuted={remote.isVideoMuted} isAudioMuted={remote.isAudioMuted} />
               ))}
             </div>
 
             <div className="floating-dock">
-              <button
-                onClick={toggleAudio}
-                className={audioMuted ? "dock-btn-muted" : "dock-btn-active"}
-              >
-                {audioMuted ? (
-                  <MicOff size={20} color="#fca5a5" />
-                ) : (
-                  <Mic size={20} color="#f8fafc" />
-                )}
+              <button onClick={toggleAudio} className={audioMuted ? "dock-btn-muted" : "dock-btn-active"}>
+                {audioMuted ? <MicOff size={20} color="#fca5a5" /> : <Mic size={20} color="#f8fafc" />}
               </button>
-              <button
-                onClick={toggleVideo}
-                className={videoMuted ? "dock-btn-muted" : "dock-btn-active"}
-              >
-                {videoMuted ? (
-                  <VideoOff size={20} color="#fca5a5" />
-                ) : (
-                  <Video size={20} color="#f8fafc" />
-                )}
+              <button onClick={toggleVideo} className={videoMuted ? "dock-btn-muted" : "dock-btn-active"}>
+                {videoMuted ? <VideoOff size={20} color="#fca5a5" /> : <Video size={20} color="#f8fafc" />}
               </button>
-              <button
-                onClick={toggleScreenShare}
-                className={
-                  isScreenSharing ? "dock-btn-sharing" : "dock-btn-active"
-                }
-              >
-                {isScreenSharing ? (
-                  <StopCircle size={20} color="#fef08a" />
-                ) : (
-                  <ScreenShare size={20} color="#f8fafc" />
-                )}
+              <button onClick={toggleScreenShare} className={isScreenSharing ? "dock-btn-sharing" : "dock-btn-active"}>
+                {isScreenSharing ? <StopCircle size={20} color="#fef08a" /> : <ScreenShare size={20} color="#f8fafc" />}
               </button>
               <label className="dock-btn-upload">
                 <Paperclip size={20} color="#f8fafc" />
-                <input
-                  type="file"
-                  onChange={handleFileUpload}
-                  style={{ display: "none" }}
-                />
+                <input type="file" onChange={handleFileUpload} style={{ display: "none" }} />
               </label>
               <button onClick={leaveRoom} className="dock-btn-leave">
-                <PhoneOff size={18} color="#ffffff" />
-                <span className="leave-text">Leave</span>
+                <PhoneOff size={18} color="#ffffff" /><span className="leave-text">Leave</span>
               </button>
             </div>
           </div>
 
           <aside className="side-suite">
             <div className="tab-header">
-              <button
-                onClick={() => setActiveTab("whiteboard")}
-                className={
-                  activeTab === "whiteboard" ? "tab-btn-active" : "tab-btn"
-                }
-              >
-                <Edit3 size={16} /> Whiteboard
-              </button>
-              <button
-                onClick={() => setActiveTab("files")}
-                className={
-                  activeTab === "files" ? "tab-btn-active" : "tab-btn"
-                }
-              >
-                <FileText size={16} /> Files ({receivedFiles.length})
-              </button>
+              <button onClick={() => setActiveTab("whiteboard")} className={activeTab === "whiteboard" ? "tab-btn-active" : "tab-btn"}><Edit3 size={16} /> Whiteboard</button>
+              <button onClick={() => setActiveTab("files")} className={activeTab === "files" ? "tab-btn-active" : "tab-btn"}><FileText size={16} /> Files ({receivedFiles.length})</button>
             </div>
             <div className="tab-body">
               {activeTab === "whiteboard" ? (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    height: "100%",
-                  }}
-                >
+                <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
                   <div className="pane-controls">
                     <span className="pane-label">Live Canvas</span>
-                    <button onClick={() => clearCanvas(true)} className="clear-btn">
-                      <Trash2 size={14} /> Clear
-                    </button>
+                    <button onClick={() => clearCanvas(true)} className="clear-btn"><Trash2 size={14} /> Clear</button>
                   </div>
                   <div className="canvas-wrapper">
                     <canvas
@@ -852,14 +624,7 @@ export default function App() {
                       onMouseMove={(e) => {
                         if (!isDrawing.current) return;
                         const c = getCanvasCoords(e);
-                        drawLineOnCanvas(
-                          canvasRef.current.lastX,
-                          canvasRef.current.lastY,
-                          c.x,
-                          c.y,
-                          "#38bdf8",
-                          true
-                        );
+                        drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#38bdf8", true);
                         canvasRef.current.lastX = c.x;
                         canvasRef.current.lastY = c.y;
                       }}
@@ -871,9 +636,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className="files-pane">
-                  <div className="pane-controls">
-                    <span className="pane-label">Shared Files</span>
-                  </div>
+                  <div className="pane-controls"><span className="pane-label">Shared Files</span></div>
                   {receivedFiles.length === 0 ? (
                     <div className="empty-state">No files yet.</div>
                   ) : (
@@ -881,18 +644,9 @@ export default function App() {
                       <div key={f.id} className="file-card">
                         <div className="file-card-info">
                           <FileText size={18} color="#38bdf8" />
-                          <div>
-                            <p className="file-name">{f.fileName}</p>
-                            <span className="file-meta">From {f.sender}</span>
-                          </div>
+                          <div><p className="file-name">{f.fileName}</p><span className="file-meta">From {f.sender}</span></div>
                         </div>
-                        <a
-                          href={f.url}
-                          download={f.fileName}
-                          className="download-link"
-                        >
-                          <Download size={16} />
-                        </a>
+                        <a href={f.url} download={f.fileName} className="download-link"><Download size={16} /></a>
                       </div>
                     ))
                   )}
