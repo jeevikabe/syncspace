@@ -508,31 +508,66 @@ export default function App() {
     }
   };
 
+  // const toggleAudio = () => {
+
+  //   const track = currentStreamRef.current?.getAudioTracks()[0];
+  //   if (track) {
+  //     const nextState = !audioMuted;
+  //     track.enabled = !nextState;
+  //     setAudioMuted(nextState);
+
+  //     if (socketRef.current) {
+  //       socketRef.current.emit("media-state-change", { roomId, isAudioMuted: nextState });
+  //     }
+  //   }
+  // };
+
+  // const toggleVideo = () => {
+  //   const track = currentStreamRef.current?.getVideoTracks()[0];
+  //   if (track) {
+  //     const nextState = !videoMuted;
+  //     track.enabled = !nextState;
+  //     setVideoMuted(nextState);
+
+  //     if (socketRef.current) {
+  //       socketRef.current.emit("media-state-change", { roomId, isVideoMuted: nextState });
+  //     }
+  //   }
+  // };
+
   const toggleAudio = () => {
-    const track = currentStreamRef.current?.getAudioTracks()[0];
-    if (track) {
-      const nextState = !audioMuted;
-      track.enabled = !nextState;
-      setAudioMuted(nextState);
+  const track = currentStreamRef.current?.getAudioTracks()[0];
+  if (track) {
+    const nextState = !audioMuted;
+    track.enabled = !nextState;
+    setAudioMuted(nextState);
 
-      if (socketRef.current) {
-        socketRef.current.emit("media-state-change", { roomId, isAudioMuted: nextState });
-      }
+    if (socketRef.current) {
+      socketRef.current.emit("media-state-change", {
+        roomId,
+        isAudioMuted: nextState,
+        isVideoMuted: videoMuted,
+      });
     }
-  };
+  }
+};
 
-  const toggleVideo = () => {
-    const track = currentStreamRef.current?.getVideoTracks()[0];
-    if (track) {
-      const nextState = !videoMuted;
-      track.enabled = !nextState;
-      setVideoMuted(nextState);
+const toggleVideo = () => {
+  const track = currentStreamRef.current?.getVideoTracks()[0];
+  if (track) {
+    const nextState = !videoMuted;
+    track.enabled = !nextState;
+    setVideoMuted(nextState);
 
-      if (socketRef.current) {
-        socketRef.current.emit("media-state-change", { roomId, isVideoMuted: nextState });
-      }
+    if (socketRef.current) {
+      socketRef.current.emit("media-state-change", {
+        roomId,
+        isAudioMuted: audioMuted,
+        isVideoMuted: nextState,
+      });
     }
-  };
+  }
+};
 
   const toggleScreenShare = async () => {
     if (!isScreenSharing) {
