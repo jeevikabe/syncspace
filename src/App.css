@@ -1,42 +1,38 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+/* Mobile Responsiveness Rules */
+@media (max-width: 768px) {
+  .navbar-container {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    height: auto !important;
+    padding: 10px 12px !important;
   }
-  to {
-    transform: rotate(360deg);
+
+  .workspace-container {
+    flex-direction: column !important;
+    height: calc(100vh - 90px) !important;
+    overflow-y: auto !important;
   }
-}
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
+  .side-suite {
+    width: 100% !important;
+    min-height: 350px !important;
+    height: auto !important;
   }
-}
 
-.card {
-  padding: 2em;
-}
+  .join-stack {
+    flex-direction: column !important;
+  }
 
-.read-the-docs {
-  color: #888;
+  .join-stack input, .join-stack button {
+    width: 100% !important;
+  }
 }

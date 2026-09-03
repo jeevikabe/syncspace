@@ -18,10 +18,10 @@ import {
   Zap,
   AlertTriangle,
   PhoneOff,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
-// const BACKEND_URL = "http://localhost:5000";
-// Replace http://localhost:5000 with my new Render URL
 const BACKEND_URL = "https://syncspace-backend-8f4l.onrender.com";
 
 const RTC_CONFIG = {
@@ -67,6 +67,7 @@ export default function App() {
   const [username, setUsername] = useState(localStorage.getItem("username") || "");
   const [authInputUser, setAuthInputUser] = useState("");
   const [authInputPass, setAuthInputPass] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState("");
 
@@ -96,6 +97,21 @@ export default function App() {
   const canvasRef = useRef();
   const offscreenCanvasRef = useRef(null);
   const isDrawing = useRef(false);
+
+  // Prevent Mobile Back Button from leaving page when typing or interacting
+  useEffect(() => {
+    window.history.pushState(null, "", window.location.href);
+
+    const handleBackButton = () => {
+      if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
+        document.activeElement.blur();
+        window.history.pushState(null, "", window.location.href);
+      }
+    };
+
+    window.addEventListener("popstate", handleBackButton);
+    return () => window.removeEventListener("popstate", handleBackButton);
+  }, []);
 
   // Initialize Off-Screen Canvas
   useEffect(() => {
@@ -406,15 +422,19 @@ export default function App() {
   const startDrawing = (e) => {
     isDrawing.current = true;
     const rect = canvasRef.current.getBoundingClientRect();
-    canvasRef.current.lastX = e.clientX - rect.left;
-    canvasRef.current.lastY = e.clientY - rect.top;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    canvasRef.current.lastX = clientX - rect.left;
+    canvasRef.current.lastY = clientY - rect.top;
   };
 
   const draw = (e) => {
     if (!isDrawing.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     const { lastX, lastY } = canvasRef.current;
     
     drawLineOnCanvas(lastX, lastY, x, y, "#38bdf8", true);
@@ -492,16 +512,26 @@ export default function App() {
                 required
               />
             </div>
+            
             <div style={styles.inputGroup}>
               <label style={styles.label}>Password</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={authInputPass}
-                onChange={(e) => setAuthInputPass(e.target.value)}
-                style={styles.input}
-                required
-              />
+              <div style={{ position: "relative", width: "100%" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={authInputPass}
+                  onChange={(e) => setAuthInputPass(e.target.value)}
+                  style={{ ...styles.input, width: "100%", paddingRight: "40px" }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={styles.eyeBtn}
+                >
+                  {showPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
+                </button>
+              </div>
             </div>
 
             <button type="submit" style={styles.primaryAuthBtn}>
@@ -524,7 +554,7 @@ export default function App() {
   return (
     <div style={styles.appWrapper}>
       {/* Top Navigation Bar */}
-      <header style={styles.navbar}>
+      <header className="navbar-container" style={styles.navbar}>
         <div style={styles.brandGroup}>
           <div style={styles.logoIconSmall}><Zap size={18} color="#38bdf8" /></div>
           <span style={styles.brandTitle}>SyncSpace <span style={styles.brandHighlight}>Studio</span></span>
@@ -576,7 +606,7 @@ export default function App() {
             <h1 style={styles.heroTitle}>Join Video Session</h1>
             <p style={styles.heroDesc}>Enter or create a conference room key to connect with your team.</p>
             
-            <div style={styles.joinInputStack}>
+            <div className="join-stack" style={styles.joinInputStack}>
               <input
                 type="text"
                 value={roomId}
@@ -591,7 +621,7 @@ export default function App() {
           </div>
         </main>
       ) : (
-        <div style={styles.workspaceLayout}>
+        <div className="workspace-container" style={styles.workspaceLayout}>
           {/* Main Full-Screen Media Stage */}
           <div style={styles.stageArea}>
             <div style={styles.videoGrid}>
@@ -667,7 +697,7 @@ export default function App() {
           </div>
 
           {/* Right Collaboration Suite */}
-          <aside style={styles.sideSuite}>
+          <aside className="side-suite" style={styles.sideSuite}>
             <div style={styles.tabHeader}>
               <button
                 onClick={() => setActiveTab("whiteboard")}
@@ -700,6 +730,9 @@ export default function App() {
                     onMouseMove={draw}
                     onMouseUp={() => (isDrawing.current = false)}
                     onMouseLeave={() => (isDrawing.current = false)}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={() => (isDrawing.current = false)}
                     style={styles.canvasElement}
                   />
                 </div>
@@ -757,16 +790,17 @@ const styles = {
   },
 
   navbar: {
-    height: "60px",
+    minHeight: "60px",
     borderBottom: "1px solid #1e293b",
     backgroundColor: "rgba(15, 23, 42, 0.85)",
     backdropFilter: "blur(12px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "0 24px",
+    padding: "8px 16px",
     zIndex: 10,
     flexShrink: 0,
+    boxSizing: "border-box",
   },
   brandGroup: { display: "flex", alignItems: "center", gap: "10px" },
   logoIconSmall: {
@@ -831,7 +865,8 @@ const styles = {
     zIndex: 999,
   },
   dialogCard: {
-    width: "360px",
+    width: "90%",
+    maxWidth: "360px",
     backgroundColor: "#0f172a",
     border: "1px solid #334155",
     borderRadius: "16px",
@@ -879,13 +914,15 @@ const styles = {
     pointerEvents: "none",
   },
   authCard: {
-    width: "380px",
+    width: "90%",
+    maxWidth: "380px",
     backgroundColor: "#0f172a",
     border: "1px solid #1e293b",
     borderRadius: "16px",
-    padding: "32px",
+    padding: "28px",
     boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
     zIndex: 1,
+    boxSizing: "border-box",
   },
   authHeader: { textAlign: "center", marginBottom: "24px" },
   logoIcon: {
@@ -912,6 +949,20 @@ const styles = {
     color: "#fff",
     fontSize: "14px",
     outline: "none",
+    boxSizing: "border-box",
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: "10px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px",
   },
   primaryAuthBtn: {
     padding: "12px",
@@ -952,7 +1003,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "40px",
+    padding: "20px",
   },
   heroCard: {
     maxWidth: "480px",
@@ -960,14 +1011,15 @@ const styles = {
     textAlign: "center",
     backgroundColor: "#0f172a",
     border: "1px solid #1e293b",
-    padding: "40px",
+    padding: "32px 24px",
     borderRadius: "20px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
+    boxSizing: "border-box",
   },
-  heroTitle: { fontSize: "28px", fontWeight: "800", color: "#f8fafc", margin: "0 0 12px 0" },
+  heroTitle: { fontSize: "24px", fontWeight: "800", color: "#f8fafc", margin: "0 0 12px 0" },
   heroDesc: { fontSize: "14px", color: "#94a3b8", lineHeight: "1.5", margin: "0 0 28px 0" },
   joinInputStack: { display: "flex", gap: "10px", width: "100%" },
   heroInput: {
@@ -981,7 +1033,7 @@ const styles = {
     outline: "none",
   },
   heroJoinBtn: {
-    padding: "12px 24px",
+    padding: "12px 20px",
     backgroundColor: "#0284c7",
     color: "#fff",
     border: "none",
@@ -989,6 +1041,7 @@ const styles = {
     fontWeight: "600",
     fontSize: "14px",
     cursor: "pointer",
+    whiteSpace: "nowrap",
   },
 
   // Dynamic Workspace Layout
@@ -1014,7 +1067,7 @@ const styles = {
   videoGrid: {
     flex: 1,
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
     gap: "16px",
     width: "100%",
     alignItems: "center",
@@ -1031,7 +1084,7 @@ const styles = {
     width: "100%",
     height: "100%",
     maxHeight: "100%",
-    minHeight: "220px",
+    minHeight: "200px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1079,13 +1132,15 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "12px",
-    padding: "0 20px",
+    gap: "8px",
+    padding: "0 16px",
     alignSelf: "center",
     boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
     flexShrink: 0,
     zIndex: 20,
     position: "relative",
+    maxWidth: "100%",
+    boxSizing: "border-box",
   },
   dockBtnActive: {
     width: "42px",
@@ -1136,7 +1191,7 @@ const styles = {
     padding: 0,
   },
   dockBtnLeaveRed: {
-    padding: "0 16px",
+    padding: "0 14px",
     height: "42px",
     borderRadius: "12px",
     backgroundColor: "#dc2626",
@@ -1214,6 +1269,7 @@ const styles = {
     borderRadius: "12px",
     overflow: "hidden",
     position: "relative",
+    touchAction: "none",
   },
   canvasElement: { width: "100%", height: "100%", cursor: "crosshair" },
 
