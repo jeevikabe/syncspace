@@ -276,10 +276,13 @@ export default function App() {
       }));
     };
 
+    // Automatically remove peer on disconnection or failure to prevent frozen stream tiles
     pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
-        pc.restartIce();
-      } else if (pc.iceConnectionState === "closed") {
+      if (
+        pc.iceConnectionState === "disconnected" || 
+        pc.iceConnectionState === "failed" || 
+        pc.iceConnectionState === "closed"
+      ) {
         removePeer(targetSocketId);
       }
     };
