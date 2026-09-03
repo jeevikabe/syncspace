@@ -53,15 +53,15 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
     }
   }, [stream]);
 
-  const rawName = username.replace(" ( You )", "").trim();
-  const initial = rawName ? rawName.charAt(0).toUpperCase() : "U";
+  const cleanName = (username || "User").replace(" ( You )", "").trim();
+  const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "U";
 
   return (
     <div className="video-card-element">
       <div className="video-header">
         <div className="video-badge">
           <span className="online-dot"></span>
-          <span>{username}</span>
+          <span>{username || "Peer"}</span>
         </div>
         {isScreen && <span className="screen-badge">Sharing Screen</span>}
       </div>
@@ -83,7 +83,7 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
       {isVideoMuted && (
         <div className="avatar-fallback">
           <div className="avatar-circle">{initial}</div>
-          <span className="avatar-name">{username}</span>
+          <span className="avatar-name">{username || "Peer"}</span>
         </div>
       )}
     </div>
@@ -328,6 +328,14 @@ export default function App() {
 
       socket.on("all-users", async (users) => {
         for (const u of users) {
+          setRemoteStreams((prev) => ({
+            ...prev,
+            [u.socketId]: {
+              ...(prev[u.socketId] || {}),
+              username: u.username || "Peer",
+            },
+          }));
+
           const pc = createPeerConnection(u.socketId, u.username);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
@@ -341,10 +349,27 @@ export default function App() {
       });
 
       socket.on("user-connected", ({ socketId, username: newUsername }) => {
+        setRemoteStreams((prev) => ({
+          ...prev,
+          [socketId]: {
+            ...(prev[socketId] || {}),
+            username: newUsername || "Peer",
+          },
+        }));
         createPeerConnection(socketId, newUsername);
       });
 
       socket.on("offer", async ({ callerId, callerUsername, sdp }) => {
+        if (callerId) {
+          setRemoteStreams((prev) => ({
+            ...prev,
+            [callerId]: {
+              ...(prev[callerId] || {}),
+              username: callerUsername || "Peer",
+            },
+          }));
+        }
+
         const pc = createPeerConnection(callerId, callerUsername);
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
 
@@ -375,15 +400,18 @@ export default function App() {
         }
       });
 
-      socket.on("media-state-change", ({ socketId, isAudioMuted, isVideoMuted }) => {
+      socket.on("media-state-change", (data) => {
+        const targetId = data.socketId || data.userId;
+        if (!targetId) return;
+
         setRemoteStreams((prev) => {
-          if (!prev[socketId]) return prev;
+          const existing = prev[targetId] || {};
           return {
             ...prev,
-            [socketId]: {
-              ...prev[socketId],
-              ...(isAudioMuted !== undefined && { isAudioMuted }),
-              ...(isVideoMuted !== undefined && { isVideoMuted }),
+            [targetId]: {
+              ...existing,
+              ...(data.isAudioMuted !== undefined && { isAudioMuted: data.isAudioMuted }),
+              ...(data.isVideoMuted !== undefined && { isVideoMuted: data.isVideoMuted }),
             },
           };
         });
@@ -880,7 +908,8 @@ export default function App() {
                 )}
               </div>
             </aside>
-          </div>        </>
+          </div>
+        </>
       )}
     </div>
   );
