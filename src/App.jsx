@@ -371,12 +371,29 @@ export default function App() {
     }
   };
 
+  // const toggleVideo = () => {
+  //   const track = currentStreamRef.current?.getVideoTracks()[0];
+  //   if (track) {
+  //     const nextState = !videoMuted;
+  //     track.enabled = !nextState;
+  //     setVideoMuted(nextState);
+  //     socketRef.current?.emit("media-state-change", {
+  //       roomId,
+  //       socketId: socketRef.current?.id,
+  //       isAudioMuted: audioMuted,
+  //       isVideoMuted: nextState,
+  //     });
+  //   }
+  // };
+
   const toggleVideo = () => {
-    const track = currentStreamRef.current?.getVideoTracks()[0];
-    if (track) {
+    const videoTrack = cameraStreamRef.current?.getVideoTracks()[0];
+    if (videoTrack) {
       const nextState = !videoMuted;
-      track.enabled = !nextState;
+      videoTrack.enabled = !nextState; // Only toggle the video track's enabled state
       setVideoMuted(nextState);
+
+      // Broadcast the state change while strictly keeping audio status as-is
       socketRef.current?.emit("media-state-change", {
         roomId,
         socketId: socketRef.current?.id,
@@ -385,6 +402,7 @@ export default function App() {
       });
     }
   };
+
 
   const toggleScreenShare = async () => {
     if (!isScreenSharing) {
@@ -419,10 +437,32 @@ export default function App() {
         if (sender) await sender.replaceTrack(cameraVideoTrack);
       });
     }
-    currentStreamRef.current = cameraStreamRef.current;
-    setLocalStream(cameraStreamRef.current);
+    // Only update the video portion, keeping the original audio stream pipeline completely untouched
+    if (cameraStreamRef.current && currentStreamRef.current) {
+      const audioTrack = currentStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        currentStreamRef.current = new MediaStream([cameraVideoTrack, audioTrack]);
+      } else {
+        currentStreamRef.current = cameraStreamRef.current;
+      }
+    }
+    setLocalStream(currentStreamRef.current);
     setIsScreenSharing(false);
   };
+  
+
+  // const stopScreenShare = async () => {
+  //   const cameraVideoTrack = cameraStreamRef.current?.getVideoTracks()[0];
+  //   if (cameraVideoTrack) {
+  //     Object.keys(peerConnections.current).forEach(async (peerId) => {
+  //       const sender = peerConnections.current[peerId].getSenders().find((s) => s.track?.kind === "video");
+  //       if (sender) await sender.replaceTrack(cameraVideoTrack);
+  //     });
+  //   }
+  //   currentStreamRef.current = cameraStreamRef.current;
+  //   setLocalStream(cameraStreamRef.current);
+  //   setIsScreenSharing(false);
+  // };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
