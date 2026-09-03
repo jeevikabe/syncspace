@@ -26,26 +26,46 @@ import "./App.css";
 
 const BACKEND_URL = "https://syncspace-backend-8f4l.onrender.com";
 
+// Public STUN + TURN configurations for peer connection cross-network relaying
 const RTC_CONFIG = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVideoMuted = false, isAudioMuted = false }) {
   const videoRef = useRef(null);
 
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-      videoRef.current
-        .play()
-        .catch((e) => console.warn("Autoplay block / playback error:", e));
+    const videoElem = videoRef.current;
+    if (!videoElem) return;
+
+    if (stream) {
+      videoElem.srcObject = stream;
+      videoElem.onloadedmetadata = () => {
+        videoElem
+          .play()
+          .catch((err) => console.warn("Video playback attempt warning:", err));
+      };
+    } else {
+      videoElem.srcObject = null;
     }
   }, [stream]);
 
-  const rawName = username.replace(" ( You )", "").trim();
+  const rawName = (username || "User").replace(" ( You )", "").trim();
   const initial = rawName ? rawName.charAt(0).toUpperCase() : "U";
 
   return (
@@ -58,7 +78,6 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
         {isScreen && <span className="screen-badge">Sharing Screen</span>}
       </div>
 
-      {/* Teams-Style Mic Indicator Badge */}
       <div className={`mic-status-overlay ${isAudioMuted ? "muted" : ""}`}>
         {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
       </div>
@@ -83,7 +102,6 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
 }
 
 export default function App() {
-  // Auth States
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [username, setUsername] = useState(localStorage.getItem("username") || "");
   const [authInputUser, setAuthInputUser] = useState("");
@@ -92,10 +110,7 @@ export default function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState("");
 
-  // Logout Dialog State
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-
-  // Room & Stream States
   const [roomId, setRoomId] = useState("room-1");
   const [joined, setJoined] = useState(false);
   const [localStream, setLocalStream] = useState(null);
@@ -104,21 +119,17 @@ export default function App() {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [receivedFiles, setReceivedFiles] = useState([]);
   
-  // UI Active Tabs (Responsive Support)
   const [activeTab, setActiveTab] = useState("whiteboard");
-  const [mobileView, setMobileView] = useState("video"); // 'video' | 'suite'
+  const [mobileView, setMobileView] = useState("video");
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
-  // Remote streams: socketId -> { username, stream, audioMuted, videoMuted }
   const [remoteStreams, setRemoteStreams] = useState({});
 
-  // Operational Refs
   const socketRef = useRef();
   const peerConnections = useRef({});
   const cameraStreamRef = useRef(null);
   const currentStreamRef = useRef(null);
 
-  // Whiteboard Canvas State
   const canvasRef = useRef();
   const offscreenCanvasRef = useRef(null);
   const isDrawing = useRef(false);
@@ -126,18 +137,6 @@ export default function App() {
   useEffect(() => {
     const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     setIsMobileDevice(checkMobile);
-  }, []);
-
-  useEffect(() => {
-    window.history.pushState(null, "", window.location.href);
-    const handleBackButton = () => {
-      if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
-        document.activeElement.blur();
-        window.history.pushState(null, "", window.location.href);
-      }
-    };
-    window.addEventListener("popstate", handleBackButton);
-    return () => window.removeEventListener("popstate", handleBackButton);
   }, []);
 
   useEffect(() => {
@@ -248,7 +247,7 @@ export default function App() {
     };
 
     pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
+      if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
         pc.restartIce();
       } else if (pc.iceConnectionState === "closed") {
         removePeer(targetSocketId);
@@ -333,7 +332,7 @@ export default function App() {
           try {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
           } catch (e) {
-            console.error("Error adding ice candidate", e);
+            console.error("Error adding ice candidate:", e);
           }
         }
       });
@@ -389,8 +388,8 @@ export default function App() {
   };
 
   const toggleScreenShare = async () => {
-    if (isMobileDevice) {
-      alert("Screen sharing is not supported on mobile web browsers.");
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      alert("Screen sharing is not supported on this device/browser combination.");
       return;
     }
 
@@ -399,7 +398,6 @@ export default function App() {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const screenTrack = screenStream.getVideoTracks()[0];
 
-        // Replace track across all peer connections
         for (const peerId of Object.keys(peerConnections.current)) {
           const pc = peerConnections.current[peerId];
           const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
@@ -667,7 +665,6 @@ export default function App() {
         </main>
       ) : (
         <>
-          {/* Mobile Switcher Bar */}
           <div className="mobile-bar-switch">
             <button
               className={`mobile-switch-btn ${mobileView === 'video' ? 'active' : ''}`}
@@ -727,13 +724,11 @@ export default function App() {
                 <button
                   onClick={toggleScreenShare}
                   className={
-                    isMobileDevice 
-                      ? "dock-btn-disabled" 
-                      : isScreenSharing 
-                        ? "dock-btn-sharing" 
-                        : "dock-btn-active"
+                    isScreenSharing 
+                      ? "dock-btn-sharing" 
+                      : "dock-btn-active"
                   }
-                  title={isMobileDevice ? "Not supported on mobile" : isScreenSharing ? "Stop Screen Share" : "Share Screen"}
+                  title={isScreenSharing ? "Stop Screen Share" : "Share Screen"}
                 >
                   {isScreenSharing ? <StopCircle size={20} color="#fef08a" /> : <ScreenShare size={20} color="#f8fafc" />}
                 </button>
