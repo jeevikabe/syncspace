@@ -356,31 +356,67 @@ export default function App() {
     }
   };
 
+  // const toggleAudio = () => {
+  //   const track = currentStreamRef.current?.getAudioTracks()[0];
+  //   if (track) {
+  //     const nextState = !audioMuted;
+  //     track.enabled = !nextState;
+  //     setAudioMuted(nextState);
+  //     socketRef.current?.emit("media-state-change", {
+  //       roomId,
+  //       socketId: socketRef.current?.id,
+  //       isAudioMuted: nextState,
+  //       isVideoMuted: videoMuted,
+  //     });
+  //   }
+  // };
+
+  // const toggleVideo = () => {
+  //   const track = currentStreamRef.current?.getVideoTracks()[0];
+  //   if (track) {
+  //     const nextState = !videoMuted;
+  //     track.enabled = !nextState;
+  //     setVideoMuted(nextState);
+  //     socketRef.current?.emit("media-state-change", {
+  //       roomId,
+  //       socketId: socketRef.current?.id,
+  //       isAudioMuted: audioMuted,
+  //       isVideoMuted: nextState,
+  //     });
+  //   }
+  // };
+
   const toggleAudio = () => {
-    const track = currentStreamRef.current?.getAudioTracks()[0];
-    if (track) {
+    // Look directly inside the active camera/local stream for audio tracks
+    const audioTrack = cameraStreamRef.current?.getAudioTracks()[0];
+    if (audioTrack) {
       const nextState = !audioMuted;
-      track.enabled = !nextState;
+      audioTrack.enabled = !nextState; // Toggle only audio track state
       setAudioMuted(nextState);
+
+      // Broadcast state update to the room without touching video
       socketRef.current?.emit("media-state-change", {
         roomId,
         socketId: socketRef.current?.id,
         isAudioMuted: nextState,
-        isVideoMuted: videoMuted,
+        isVideoMuted: videoMuted, // Keep video state completely unchanged
       });
     }
   };
 
   const toggleVideo = () => {
-    const track = currentStreamRef.current?.getVideoTracks()[0];
-    if (track) {
+    // Look directly inside the active camera/local stream for video tracks
+    const videoTrack = cameraStreamRef.current?.getVideoTracks()[0];
+    if (videoTrack) {
       const nextState = !videoMuted;
-      track.enabled = !nextState;
+      videoTrack.enabled = !nextState; // Toggle only video track state
       setVideoMuted(nextState);
+
+      // Broadcast state update to the room without touching audio
       socketRef.current?.emit("media-state-change", {
         roomId,
         socketId: socketRef.current?.id,
-        isAudioMuted: audioMuted,
+        isAudioMuted: audioMuted, // Keep audio state completely unchanged
         isVideoMuted: nextState,
       });
     }
