@@ -438,10 +438,12 @@ export default function App() {
   const toggleScreenShare = async () => {
     if (!isScreenSharing) {
       try {
-        const screenStream = navigator.mediaDevices.getDisplayMedia
-          ? await navigator.mediaDevices.getDisplayMedia({ video: true })
-          : await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (isMobileDevice) {
+          alert("Screen sharing is restricted on mobile browsers. Please use camera sharing instead.");
+          return;
+        }
 
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const screenTrack = screenStream.getVideoTracks()[0];
 
         for (const peerId of Object.keys(peerConnections.current)) {
@@ -463,7 +465,6 @@ export default function App() {
         screenTrack.onended = () => stopScreenShare();
       } catch (err) {
         console.error("Screen sharing error:", err);
-        alert("Screen sharing could not be started on this mobile browser.");
       }
     } else {
       stopScreenShare();
