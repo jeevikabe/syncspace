@@ -34,6 +34,63 @@ const RTC_CONFIG = {
   ],
 };
 
+// function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVideoMuted = false, isAudioMuted = false }) {
+//   const videoRef = useRef(null);
+
+//   useEffect(() => {
+//     const videoObj = videoRef.current;
+//     if (videoObj && stream) {
+//       videoObj.srcObject = stream;
+      
+//       const playPromise = videoObj.play();
+//       if (playPromise !== undefined) {
+//         playPromise.catch((e) => {
+//           console.warn("Autoplay block / playback error, attempting muted fallback:", e);
+//           videoObj.muted = true;
+//           videoObj.play().catch((err) => console.error("Video play completely blocked:", err));
+//         });
+//       }
+//     }
+//   }, [stream]);
+
+//   const cleanName = (username || "User").replace(" ( You )", "").trim();
+//   const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "U";
+
+//   return (
+//     <div className="video-card-element">
+//       <div className="video-header">
+//         <div className="video-badge">
+//           <span className="online-dot"></span>
+//           <span>{username || "Peer"}</span>
+//         </div>
+//         {isScreen && <span className="screen-badge">Sharing Screen</span>}
+//       </div>
+
+//       <div className={`mic-status-overlay ${isAudioMuted ? "muted" : ""}`}>
+//         {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
+//       </div>
+
+//       <video
+//         ref={videoRef}
+//         autoPlay
+//         playsInline
+//         webkit-playsinline="true"
+//         muted={isSelf}
+//         style={{ display: isVideoMuted ? "none" : "block" }}
+//         className={isScreen ? "screen-stream" : "video-stream"}
+//       />
+
+//       {isVideoMuted && (
+//         <div className="avatar-fallback">
+//           <div className="avatar-circle">{initial}</div>
+//           <span className="avatar-name">{username || "Peer"}</span>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+
 function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVideoMuted = false, isAudioMuted = false }) {
   const videoRef = useRef(null);
 
@@ -41,7 +98,7 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
     const videoObj = videoRef.current;
     if (videoObj && stream) {
       videoObj.srcObject = stream;
-      
+
       const playPromise = videoObj.play();
       if (playPromise !== undefined) {
         playPromise.catch((e) => {
@@ -52,6 +109,19 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
       }
     }
   }, [stream]);
+
+  const videoTracks = stream?.getVideoTracks?.() ?? [];
+  const audioTracks = stream?.getAudioTracks?.() ?? [];
+
+  const effectiveVideoMuted =
+    isVideoMuted ||
+    videoTracks.some((track) => track.readyState === "live" && track.enabled === false) ||
+    videoTracks.length === 0;
+
+  const effectiveAudioMuted =
+    isAudioMuted ||
+    audioTracks.some((track) => track.readyState === "live" && track.enabled === false) ||
+    audioTracks.length === 0;
 
   const cleanName = (username || "User").replace(" ( You )", "").trim();
   const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "U";
@@ -66,8 +136,8 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
         {isScreen && <span className="screen-badge">Sharing Screen</span>}
       </div>
 
-      <div className={`mic-status-overlay ${isAudioMuted ? "muted" : ""}`}>
-        {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
+      <div className={`mic-status-overlay ${effectiveAudioMuted ? "muted" : ""}`}>
+        {effectiveAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
       </div>
 
       <video
@@ -76,11 +146,11 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
         playsInline
         webkit-playsinline="true"
         muted={isSelf}
-        style={{ display: isVideoMuted ? "none" : "block" }}
+        style={{ display: effectiveVideoMuted ? "none" : "block" }}
         className={isScreen ? "screen-stream" : "video-stream"}
       />
 
-      {isVideoMuted && (
+      {effectiveVideoMuted && (
         <div className="avatar-fallback">
           <div className="avatar-circle">{initial}</div>
           <span className="avatar-name">{username || "Peer"}</span>
@@ -89,6 +159,7 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
     </div>
   );
 }
+
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
