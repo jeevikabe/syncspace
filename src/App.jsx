@@ -160,7 +160,6 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
   );
 }
 
-
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [username, setUsername] = useState(localStorage.getItem("username") || "");
@@ -535,7 +534,7 @@ export default function App() {
   //   }
   // };
 
-  const toggleAudio = () => {
+const toggleAudio = () => {
   const track = currentStreamRef.current?.getAudioTracks()[0];
   if (track) {
     const nextState = !audioMuted;
@@ -568,6 +567,7 @@ const toggleVideo = () => {
     }
   }
 };
+
 
   const toggleScreenShare = async () => {
     if (!isScreenSharing) {
