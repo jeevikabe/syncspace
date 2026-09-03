@@ -5,6 +5,36 @@ const cors = require("cors");
 
 const app = express();
 app.use(cors());
+app.use(express.json()); // <-- CRITICAL: Required to parse JSON request bodies
+
+// Mock authentication database storage for demo purposes
+const usersDb = {};
+
+// Authentication Endpoints
+app.post("/api/register", (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username and password are required" });
+  }
+  if (usersDb[username]) {
+    return res.status(400).json({ error: "Username already exists" });
+  }
+  usersDb[username] = password;
+  return res.json({ token: `token_${Date.now()}`, username });
+});
+
+app.post("/api/login", (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username and password are required" });
+  }
+  if (usersDb[username] && usersDb[username] !== password) {
+    return res.status(401).json({ error: "Invalid password" });
+  }
+  // Allow login if user exists or auto-register for ease of testing
+  usersDb[username] = password;
+  return res.json({ token: `token_${Date.now()}`, username });
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
