@@ -30,6 +30,7 @@ const RTC_CONFIG = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
   ],
 };
 
@@ -37,11 +38,18 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
   const videoRef = useRef(null);
 
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-      videoRef.current
-        .play()
-        .catch((e) => console.warn("Autoplay block / playback error:", e));
+    const videoObj = videoRef.current;
+    if (videoObj && stream) {
+      videoObj.srcObject = stream;
+      
+      const playPromise = videoObj.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => {
+          console.warn("Autoplay block / playback error, attempting muted fallback:", e);
+          videoObj.muted = true;
+          videoObj.play().catch((err) => console.error("Video play completely blocked:", err));
+        });
+      }
     }
   }, [stream]);
 
@@ -67,6 +75,7 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
         ref={videoRef}
         autoPlay
         playsInline
+        webkit-playsinline="true"
         muted={isSelf}
         style={{ display: isVideoMuted ? "none" : "block" }}
         className={isScreen ? "screen-stream" : "video-stream"}
@@ -180,6 +189,7 @@ export default function App() {
   };
 
   const confirmLogout = () => {
+    leaveRoom();
     localStorage.removeItem("token");
     localStorage.removeItem("username");
     setToken("");
@@ -270,9 +280,31 @@ export default function App() {
     });
   };
 
+  const leaveRoom = () => {
+    if (socketRef.current && joined) {
+      socketRef.current.emit("leave-room", roomId);
+    }
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    Object.keys(peerConnections.current).forEach((id) => removePeer(id));
+    setLocalStream(null);
+    setJoined(false);
+  };
+
   const joinRoom = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      // Mobile Safari / Chrome Constraints optimized for cross-device bandwidth & compatibility
+      const constraints = {
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { max: 24 },
+        },
+        audio: true,
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       cameraStreamRef.current = stream;
       currentStreamRef.current = stream;
       setLocalStream(stream);
@@ -359,6 +391,7 @@ export default function App() {
 
     } catch (err) {
       console.error("Failed to access camera/mic:", err);
+      alert("Please allow camera and microphone permissions to join.");
     }
   };
 
@@ -744,7 +777,7 @@ export default function App() {
                 </label>
 
                 <button
-                  onClick={() => setJoined(false)}
+                  onClick={leaveRoom}
                   className="dock-btn-leave"
                   title="Leave Room"
                 >
