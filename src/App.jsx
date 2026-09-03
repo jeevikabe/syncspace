@@ -325,17 +325,36 @@ export default function App() {
       }
     };
 
+    // pc.ontrack = (event) => {
+    //   const [remoteStream] = event.streams;
+    //   setRemoteStreams((prev) => ({
+    //     ...prev,
+    //     [targetSocketId]: {
+    //       ...prev[targetSocketId],
+    //       username: targetUsername || prev[targetSocketId]?.username || "Peer",
+    //       stream: remoteStream,
+    //     },
+    //   }));
+    // };
+
     pc.ontrack = (event) => {
-      const [remoteStream] = event.streams;
-      setRemoteStreams((prev) => ({
-        ...prev,
-        [targetSocketId]: {
-          ...prev[targetSocketId],
-          username: targetUsername || prev[targetSocketId]?.username || "Peer",
-          stream: remoteStream,
-        },
-      }));
+  const [remoteStream] = event.streams;
+
+  setRemoteStreams((prev) => {
+    const current = prev[targetSocketId] || {};
+    return {
+      ...prev,
+      [targetSocketId]: {
+        ...current,
+        username: targetUsername || current.username || "Peer",
+        stream: remoteStream,
+        isAudioMuted: current.isAudioMuted ?? false,
+        isVideoMuted: current.isVideoMuted ?? false,
+      },
     };
+  });
+};
+
 
     pc.oniceconnectionstatechange = () => {
       if (
@@ -470,22 +489,44 @@ export default function App() {
         }
       });
 
-      socket.on("media-state-change", (data) => {
-        const targetId = data.socketId || data.userId;
-        if (!targetId) return;
+      // socket.on("media-state-change", (data) => {
+      //   const targetId = data.socketId || data.userId;
+      //   if (!targetId) return;
 
-        setRemoteStreams((prev) => {
-          const existing = prev[targetId] || {};
-          return {
-            ...prev,
-            [targetId]: {
-              ...existing,
-              ...(data.isAudioMuted !== undefined && { isAudioMuted: data.isAudioMuted }),
-              ...(data.isVideoMuted !== undefined && { isVideoMuted: data.isVideoMuted }),
-            },
-          };
-        });
-      });
+      //   setRemoteStreams((prev) => {
+      //     const existing = prev[targetId] || {};
+      //     return {
+      //       ...prev,
+      //       [targetId]: {
+      //         ...existing,
+      //         ...(data.isAudioMuted !== undefined && { isAudioMuted: data.isAudioMuted }),
+      //         ...(data.isVideoMuted !== undefined && { isVideoMuted: data.isVideoMuted }),
+      //       },
+      //     };
+      //   });
+      // });
+
+
+      socket.on("media-state-change", (data) => {
+  const targetId = data.socketId || data.userId;
+  if (!targetId) return;
+
+  setRemoteStreams((prev) => {
+    const existing = prev[targetId] || {};
+    return {
+      ...prev,
+      [targetId]: {
+        ...existing,
+        stream: existing.stream,
+        username: existing.username || "Peer",
+        isAudioMuted:
+          data.isAudioMuted !== undefined ? data.isAudioMuted : existing.isAudioMuted ?? false,
+        isVideoMuted:
+          data.isVideoMuted !== undefined ? data.isVideoMuted : existing.isVideoMuted ?? false,
+      },
+    };
+  });
+});
 
       socket.on("user-left", (socketId) => {
         setRemoteStreams((prev) => {
