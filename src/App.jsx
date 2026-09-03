@@ -20,7 +20,9 @@ import {
   PhoneOff,
 } from "lucide-react";
 
-const BACKEND_URL = "http://localhost:5000";
+// const BACKEND_URL = "http://localhost:5000";
+// Replace http://localhost:5000 with my new Render URL
+const BACKEND_URL = "https://syncspace-backend-8f4l.onrender.com";
 
 const RTC_CONFIG = {
   iceServers: [
