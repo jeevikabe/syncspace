@@ -34,63 +34,6 @@ const RTC_CONFIG = {
   ],
 };
 
-// function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVideoMuted = false, isAudioMuted = false }) {
-//   const videoRef = useRef(null);
-
-//   useEffect(() => {
-//     const videoObj = videoRef.current;
-//     if (videoObj && stream) {
-//       videoObj.srcObject = stream;
-      
-//       const playPromise = videoObj.play();
-//       if (playPromise !== undefined) {
-//         playPromise.catch((e) => {
-//           console.warn("Autoplay block / playback error, attempting muted fallback:", e);
-//           videoObj.muted = true;
-//           videoObj.play().catch((err) => console.error("Video play completely blocked:", err));
-//         });
-//       }
-//     }
-//   }, [stream]);
-
-//   const cleanName = (username || "User").replace(" ( You )", "").trim();
-//   const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "U";
-
-//   return (
-//     <div className="video-card-element">
-//       <div className="video-header">
-//         <div className="video-badge">
-//           <span className="online-dot"></span>
-//           <span>{username || "Peer"}</span>
-//         </div>
-//         {isScreen && <span className="screen-badge">Sharing Screen</span>}
-//       </div>
-
-//       <div className={`mic-status-overlay ${isAudioMuted ? "muted" : ""}`}>
-//         {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
-//       </div>
-
-//       <video
-//         ref={videoRef}
-//         autoPlay
-//         playsInline
-//         webkit-playsinline="true"
-//         muted={isSelf}
-//         style={{ display: isVideoMuted ? "none" : "block" }}
-//         className={isScreen ? "screen-stream" : "video-stream"}
-//       />
-
-//       {isVideoMuted && (
-//         <div className="avatar-fallback">
-//           <div className="avatar-circle">{initial}</div>
-//           <span className="avatar-name">{username || "Peer"}</span>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-
 function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVideoMuted = false, isAudioMuted = false }) {
   const videoRef = useRef(null);
 
@@ -178,11 +121,11 @@ export default function App() {
   const [videoMuted, setVideoMuted] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [receivedFiles, setReceivedFiles] = useState([]);
-  
+
   const [notification, setNotification] = useState("");
-  
+
   const [activeTab, setActiveTab] = useState("whiteboard");
-  const [mobileView, setMobileView] = useState("video"); 
+  const [mobileView, setMobileView] = useState("video");
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
   const [remoteStreams, setRemoteStreams] = useState({});
@@ -291,7 +234,7 @@ export default function App() {
       peerConnections.current[targetSocketId].close();
       delete peerConnections.current[targetSocketId];
     }
-    
+
     setRemoteStreams((prev) => {
       const updated = { ...prev };
       if (updated[targetSocketId]?.stream) {
@@ -325,41 +268,28 @@ export default function App() {
       }
     };
 
-    // pc.ontrack = (event) => {
-    //   const [remoteStream] = event.streams;
-    //   setRemoteStreams((prev) => ({
-    //     ...prev,
-    //     [targetSocketId]: {
-    //       ...prev[targetSocketId],
-    //       username: targetUsername || prev[targetSocketId]?.username || "Peer",
-    //       stream: remoteStream,
-    //     },
-    //   }));
-    // };
-
     pc.ontrack = (event) => {
-  const [remoteStream] = event.streams;
+      const [remoteStream] = event.streams;
 
-  setRemoteStreams((prev) => {
-    const current = prev[targetSocketId] || {};
-    return {
-      ...prev,
-      [targetSocketId]: {
-        ...current,
-        username: targetUsername || current.username || "Peer",
-        stream: remoteStream,
-        isAudioMuted: current.isAudioMuted ?? false,
-        isVideoMuted: current.isVideoMuted ?? false,
-      },
+      setRemoteStreams((prev) => {
+        const current = prev[targetSocketId] || {};
+        return {
+          ...prev,
+          [targetSocketId]: {
+            ...current,
+            username: targetUsername || current.username || "Peer",
+            stream: remoteStream,
+            isAudioMuted: current.isAudioMuted ?? false,
+            isVideoMuted: current.isVideoMuted ?? false,
+          },
+        };
+      });
     };
-  });
-};
-
 
     pc.oniceconnectionstatechange = () => {
       if (
-        pc.iceConnectionState === "disconnected" || 
-        pc.iceConnectionState === "failed" || 
+        pc.iceConnectionState === "disconnected" ||
+        pc.iceConnectionState === "failed" ||
         pc.iceConnectionState === "closed"
       ) {
         removePeer(targetSocketId);
@@ -387,7 +317,7 @@ export default function App() {
         video: {
           width: { ideal: 1280, max: 1920 },
           height: { ideal: 720, max: 1080 },
-          facingMode: "user"
+          facingMode: "user",
         },
         audio: {
           echoCancellation: true,
@@ -489,44 +419,26 @@ export default function App() {
         }
       });
 
-      // socket.on("media-state-change", (data) => {
-      //   const targetId = data.socketId || data.userId;
-      //   if (!targetId) return;
-
-      //   setRemoteStreams((prev) => {
-      //     const existing = prev[targetId] || {};
-      //     return {
-      //       ...prev,
-      //       [targetId]: {
-      //         ...existing,
-      //         ...(data.isAudioMuted !== undefined && { isAudioMuted: data.isAudioMuted }),
-      //         ...(data.isVideoMuted !== undefined && { isVideoMuted: data.isVideoMuted }),
-      //       },
-      //     };
-      //   });
-      // });
-
-
       socket.on("media-state-change", (data) => {
-  const targetId = data.socketId || data.userId;
-  if (!targetId) return;
+        const targetId = data.socketId || data.userId;
+        if (!targetId) return;
 
-  setRemoteStreams((prev) => {
-    const existing = prev[targetId] || {};
-    return {
-      ...prev,
-      [targetId]: {
-        ...existing,
-        stream: existing.stream,
-        username: existing.username || "Peer",
-        isAudioMuted:
-          data.isAudioMuted !== undefined ? data.isAudioMuted : existing.isAudioMuted ?? false,
-        isVideoMuted:
-          data.isVideoMuted !== undefined ? data.isVideoMuted : existing.isVideoMuted ?? false,
-      },
-    };
-  });
-});
+        setRemoteStreams((prev) => {
+          const existing = prev[targetId] || {};
+          return {
+            ...prev,
+            [targetId]: {
+              ...existing,
+              stream: existing.stream,
+              username: existing.username || "Peer",
+              isAudioMuted:
+                data.isAudioMuted !== undefined ? data.isAudioMuted : existing.isAudioMuted ?? false,
+              isVideoMuted:
+                data.isVideoMuted !== undefined ? data.isVideoMuted : existing.isVideoMuted ?? false,
+            },
+          };
+        });
+      });
 
       socket.on("user-left", (socketId) => {
         setRemoteStreams((prev) => {
@@ -541,74 +453,45 @@ export default function App() {
       socket.on("draw-line", (draw) => drawLineOnCanvas(draw.x0, draw.y0, draw.x1, draw.y1, draw.color, false));
       socket.on("clear-canvas", () => clearCanvas(false));
       socket.on("receive-file", (fileObj) => addFileToState(fileObj));
-
     } catch (err) {
       console.error("Failed to access camera/mic:", err);
       alert("Please allow camera and microphone permissions to join.");
     }
   };
 
-  // const toggleAudio = () => {
+  const toggleAudio = () => {
+    const track = currentStreamRef.current?.getAudioTracks()[0];
+    if (track) {
+      const nextState = !audioMuted;
+      track.enabled = !nextState;
+      setAudioMuted(nextState);
 
-  //   const track = currentStreamRef.current?.getAudioTracks()[0];
-  //   if (track) {
-  //     const nextState = !audioMuted;
-  //     track.enabled = !nextState;
-  //     setAudioMuted(nextState);
-
-  //     if (socketRef.current) {
-  //       socketRef.current.emit("media-state-change", { roomId, isAudioMuted: nextState });
-  //     }
-  //   }
-  // };
-
-  // const toggleVideo = () => {
-  //   const track = currentStreamRef.current?.getVideoTracks()[0];
-  //   if (track) {
-  //     const nextState = !videoMuted;
-  //     track.enabled = !nextState;
-  //     setVideoMuted(nextState);
-
-  //     if (socketRef.current) {
-  //       socketRef.current.emit("media-state-change", { roomId, isVideoMuted: nextState });
-  //     }
-  //   }
-  // };
-
-const toggleAudio = () => {
-  const track = currentStreamRef.current?.getAudioTracks()[0];
-  if (track) {
-    const nextState = !audioMuted;
-    track.enabled = !nextState;
-    setAudioMuted(nextState);
-
-    if (socketRef.current) {
-      socketRef.current.emit("media-state-change", {
-        roomId,
-        isAudioMuted: nextState,
-        isVideoMuted: videoMuted,
-      });
+      if (socketRef.current) {
+        socketRef.current.emit("media-state-change", {
+          roomId,
+          isAudioMuted: nextState,
+          isVideoMuted: videoMuted,
+        });
+      }
     }
-  }
-};
+  };
 
-const toggleVideo = () => {
-  const track = currentStreamRef.current?.getVideoTracks()[0];
-  if (track) {
-    const nextState = !videoMuted;
-    track.enabled = !nextState;
-    setVideoMuted(nextState);
+  const toggleVideo = () => {
+    const track = currentStreamRef.current?.getVideoTracks()[0];
+    if (track) {
+      const nextState = !videoMuted;
+      track.enabled = !nextState;
+      setVideoMuted(nextState);
 
-    if (socketRef.current) {
-      socketRef.current.emit("media-state-change", {
-        roomId,
-        isAudioMuted: audioMuted,
-        isVideoMuted: nextState,
-      });
+      if (socketRef.current) {
+        socketRef.current.emit("media-state-change", {
+          roomId,
+          isAudioMuted: audioMuted,
+          isVideoMuted: nextState,
+        });
+      }
     }
-  }
-};
-
+  };
 
   const toggleScreenShare = async () => {
     if (!isScreenSharing) {
@@ -766,7 +649,9 @@ const toggleVideo = () => {
         <div className="auth-glow"></div>
         <div className="auth-card">
           <div className="auth-header">
-            <div className="logo-icon"><Zap size={24} color="#38bdf8" /></div>
+            <div className="logo-icon">
+              <Zap size={24} color="#38bdf8" />
+            </div>
             <h2 className="auth-title">SyncSpace Studio</h2>
             <p className="auth-subtitle">Encrypted Collaboration & Video Portal</p>
           </div>
@@ -829,8 +714,12 @@ const toggleVideo = () => {
     <div className="app-wrapper">
       <header className="navbar-container">
         <div className="brand-group">
-          <div className="logo-icon-small"><Zap size={18} color="#38bdf8" /></div>
-          <span className="brand-title">SyncSpace <span className="brand-highlight">Studio</span></span>
+          <div className="logo-icon-small">
+            <Zap size={18} color="#38bdf8" />
+          </div>
+          <span className="brand-title">
+            SyncSpace <span className="brand-highlight">Studio</span>
+          </span>
         </div>
 
         {joined && (
@@ -903,20 +792,20 @@ const toggleVideo = () => {
         <>
           <div className="mobile-bar-switch">
             <button
-              className={`mobile-switch-btn ${mobileView === 'video' ? 'active' : ''}`}
-              onClick={() => setMobileView('video')}
+              className={`mobile-switch-btn ${mobileView === "video" ? "active" : ""}`}
+              onClick={() => setMobileView("video")}
             >
               <Video size={14} /> Stage
             </button>
             <button
-              className={`mobile-switch-btn ${mobileView === 'suite' ? 'active' : ''}`}
-              onClick={() => setMobileView('suite')}
+              className={`mobile-switch-btn ${mobileView === "suite" ? "active" : ""}`}
+              onClick={() => setMobileView("suite")}
             >
               <Layout size={14} /> Workspace
             </button>
           </div>
 
-          <div className={`workspace-layout ${mobileView === 'video' ? 'show-video' : 'show-suite'}`}>
+          <div className={`workspace-layout ${mobileView === "video" ? "show-video" : "show-suite"}`}>
             <div className="stage-area">
               <div className="video-grid">
                 <VideoPlayer
@@ -970,11 +859,7 @@ const toggleVideo = () => {
                   <input type="file" onChange={handleFileUpload} style={{ display: "none" }} />
                 </label>
 
-                <button
-                  onClick={leaveRoom}
-                  className="dock-btn-leave"
-                  title="Leave Room"
-                >
+                <button onClick={leaveRoom} className="dock-btn-leave" title="Leave Room">
                   <PhoneOff size={18} color="#ffffff" />
                   <span className="leave-text">Leave</span>
                 </button>
@@ -998,7 +883,13 @@ const toggleVideo = () => {
               </div>
 
               <div className="tab-body">
-                <div style={{ display: activeTab === "whiteboard" ? "flex" : "none", flexDirection: "column", height: "100%" }}>
+                <div
+                  style={{
+                    display: activeTab === "whiteboard" ? "flex" : "none",
+                    flexDirection: "column",
+                    height: "100%",
+                  }}
+                >
                   <div className="pane-controls">
                     <span className="pane-label">Live Interactive Canvas</span>
                     <button onClick={() => clearCanvas(true)} className="clear-btn">
@@ -1044,9 +935,7 @@ const toggleVideo = () => {
                             <a href={f.url} download={f.fileName} className="download-link">
                               <Download size={16} />
                             </a>
-                            {f.isImage && (
-                              <img src={f.url} alt="Shared preview" className="image-preview" />
-                            )}
+                            {f.isImage && <img src={f.url} alt="Shared preview" className="image-preview" />}
                           </div>
                         ))}
                       </div>
