@@ -3,36 +3,87 @@
   margin: 0;
   padding: 0;
   width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
-/* Mobile Responsiveness Rules */
+/* Base scrollbar tweaks */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+
+/* Mobile & Tablet Specific Responsive Styles */
 @media (max-width: 768px) {
   .navbar-container {
-    flex-wrap: wrap !important;
-    gap: 8px !important;
-    height: auto !important;
-    padding: 10px 12px !important;
+    padding: 8px 12px !important;
+    gap: 6px !important;
   }
 
+  .brand-title {
+    font-size: 15px !important;
+  }
+
+  .room-badge {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+  }
+
+  .user-pill-name {
+    display: none !important; /* Hide long username text on mobile topbar to save space */
+  }
+
+  /* Stack Stage and Side Suite vertically on Mobile */
   .workspace-container {
     flex-direction: column !important;
-    height: calc(100vh - 90px) !important;
+    height: auto !important;
     overflow-y: auto !important;
+    padding: 10px !important;
+    gap: 12px !important;
+  }
+
+  .stage-area {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  .video-grid {
+    grid-template-columns: 1fr !important;
+    max-height: none !important;
+    height: auto !important;
+  }
+
+  .video-card-element {
+    min-height: 240px !important;
+    height: 240px !important;
+  }
+
+  /* Make floating dock sticky at the bottom of viewport on mobile */
+  .floating-dock-bar {
+    position: sticky !important;
+    bottom: 12px !important;
+    margin-top: 12px;
+    width: 100% !important;
+    max-width: 100% !important;
+    justify-content: space-around !important;
+    padding: 6px 10px !important;
+    z-index: 50 !important;
   }
 
   .side-suite {
     width: 100% !important;
-    min-height: 350px !important;
-    height: auto !important;
+    height: 420px !important;
+    min-height: 420px !important;
   }
 
-  .join-stack {
-    flex-direction: column !important;
-  }
-
-  .join-stack input, .join-stack button {
-    width: 100% !important;
+  .canvas-element-box {
+    height: 300px !important;
   }
 }

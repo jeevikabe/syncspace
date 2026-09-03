@@ -21,6 +21,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import "./App.css";
 
 const BACKEND_URL = "https://syncspace-backend-8f4l.onrender.com";
 
@@ -42,7 +43,7 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false }) {
   }, [stream]);
 
   return (
-    <div style={styles.videoCard}>
+    <div style={styles.videoCard} className="video-card-element">
       <div style={styles.videoHeader}>
         <div style={styles.videoBadge}>
           <span style={styles.onlineDot}></span>
@@ -557,11 +558,11 @@ export default function App() {
       <header className="navbar-container" style={styles.navbar}>
         <div style={styles.brandGroup}>
           <div style={styles.logoIconSmall}><Zap size={18} color="#38bdf8" /></div>
-          <span style={styles.brandTitle}>SyncSpace <span style={styles.brandHighlight}>Studio</span></span>
+          <span className="brand-title" style={styles.brandTitle}>SyncSpace <span style={styles.brandHighlight}>Studio</span></span>
         </div>
 
         {joined && (
-          <div style={styles.roomStatusBadge}>
+          <div className="room-badge" style={styles.roomStatusBadge}>
             <span style={styles.onlineDot}></span> Room: <strong style={{ color: "#fff" }}>{roomId}</strong>
           </div>
         )}
@@ -569,7 +570,7 @@ export default function App() {
         <div style={styles.userControls}>
           <div style={styles.userPill}>
             <User size={14} color="#a1a1aa" />
-            <span style={styles.userName}>{username}</span>
+            <span className="user-pill-name" style={styles.userName}>{username}</span>
           </div>
           <button onClick={() => setShowLogoutDialog(true)} style={styles.logoutBtn} title="Sign Out">
             <LogOut size={16} />
@@ -622,9 +623,9 @@ export default function App() {
         </main>
       ) : (
         <div className="workspace-container" style={styles.workspaceLayout}>
-          {/* Main Full-Screen Media Stage */}
-          <div style={styles.stageArea}>
-            <div style={styles.videoGrid}>
+          {/* Main Stage */}
+          <div className="stage-area" style={styles.stageArea}>
+            <div className="video-grid" style={styles.videoGrid}>
               <VideoPlayer
                 stream={localStream}
                 username={`${username} ( You )`}
@@ -642,17 +643,17 @@ export default function App() {
               ))}
             </div>
 
-            {/* Bottom Floating Control Bar */}
-            <div style={styles.floatingDock}>
+            {/* Bottom Floating Dock Control Bar */}
+            <div className="floating-dock-bar" style={styles.floatingDock}>
               <button
                 onClick={toggleAudio}
                 style={audioMuted ? styles.dockBtnMuted : styles.dockBtnActive}
                 title={audioMuted ? "Unmute Mic" : "Mute Mic"}
               >
                 {audioMuted ? (
-                  <MicOff size={20} color="#fca5a5" style={{ flexShrink: 0, display: "block" }} />
+                  <MicOff size={20} color="#fca5a5" style={{ flexShrink: 0 }} />
                 ) : (
-                  <Mic size={20} color="#f8fafc" style={{ flexShrink: 0, display: "block" }} />
+                  <Mic size={20} color="#f8fafc" style={{ flexShrink: 0 }} />
                 )}
               </button>
 
@@ -662,9 +663,9 @@ export default function App() {
                 title={videoMuted ? "Start Video" : "Stop Video"}
               >
                 {videoMuted ? (
-                  <VideoOff size={20} color="#fca5a5" style={{ flexShrink: 0, display: "block" }} />
+                  <VideoOff size={20} color="#fca5a5" style={{ flexShrink: 0 }} />
                 ) : (
-                  <Video size={20} color="#f8fafc" style={{ flexShrink: 0, display: "block" }} />
+                  <Video size={20} color="#f8fafc" style={{ flexShrink: 0 }} />
                 )}
               </button>
 
@@ -674,14 +675,14 @@ export default function App() {
                 title={isScreenSharing ? "Stop Screen Share" : "Share Screen"}
               >
                 {isScreenSharing ? (
-                  <StopCircle size={20} color="#fef08a" style={{ flexShrink: 0, display: "block" }} />
+                  <StopCircle size={20} color="#fef08a" style={{ flexShrink: 0 }} />
                 ) : (
-                  <ScreenShare size={20} color="#f8fafc" style={{ flexShrink: 0, display: "block" }} />
+                  <ScreenShare size={20} color="#f8fafc" style={{ flexShrink: 0 }} />
                 )}
               </button>
 
               <label style={styles.dockBtnUpload} title="Share File">
-                <Paperclip size={20} color="#f8fafc" style={{ flexShrink: 0, display: "block" }} />
+                <Paperclip size={20} color="#f8fafc" style={{ flexShrink: 0 }} />
                 <input type="file" onChange={handleFileUpload} style={{ display: "none" }} />
               </label>
 
@@ -690,7 +691,7 @@ export default function App() {
                 style={styles.dockBtnLeaveRed}
                 title="Leave Room"
               >
-                <PhoneOff size={18} color="#ffffff" style={{ flexShrink: 0, display: "block" }} />
+                <PhoneOff size={18} color="#ffffff" style={{ flexShrink: 0 }} />
                 <span>Leave</span>
               </button>
             </div>
@@ -721,7 +722,7 @@ export default function App() {
                     <Trash2 size={14} /> Clear
                   </button>
                 </div>
-                <div style={styles.canvasWrapper}>
+                <div className="canvas-element-box" style={styles.canvasWrapper}>
                   <canvas
                     ref={canvasRef}
                     width={600}
@@ -779,33 +780,32 @@ export default function App() {
 
 const styles = {
   appWrapper: {
-    height: "100vh",
+    minHeight: "100vh",
     width: "100vw",
     backgroundColor: "#090d16",
     color: "#f1f5f9",
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     display: "flex",
     flexDirection: "column",
-    overflow: "hidden",
   },
 
   navbar: {
-    minHeight: "60px",
+    minHeight: "56px",
     borderBottom: "1px solid #1e293b",
-    backgroundColor: "rgba(15, 23, 42, 0.85)",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
     backdropFilter: "blur(12px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "8px 16px",
-    zIndex: 10,
+    zIndex: 20,
     flexShrink: 0,
     boxSizing: "border-box",
   },
-  brandGroup: { display: "flex", alignItems: "center", gap: "10px" },
+  brandGroup: { display: "flex", alignItems: "center", gap: "8px" },
   logoIconSmall: {
-    width: "32px",
-    height: "32px",
+    width: "30px",
+    height: "30px",
     borderRadius: "8px",
     backgroundColor: "rgba(56, 189, 248, 0.1)",
     display: "flex",
@@ -813,29 +813,29 @@ const styles = {
     justifyContent: "center",
     border: "1px solid rgba(56, 189, 248, 0.2)",
   },
-  brandTitle: { fontSize: "18px", fontWeight: "700", letterSpacing: "-0.5px" },
+  brandTitle: { fontSize: "17px", fontWeight: "700", letterSpacing: "-0.5px" },
   brandHighlight: { color: "#38bdf8" },
   roomStatusBadge: {
-    padding: "6px 14px",
+    padding: "4px 12px",
     borderRadius: "20px",
     backgroundColor: "#1e293b",
-    fontSize: "13px",
+    fontSize: "12px",
     color: "#94a3b8",
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "6px",
     border: "1px solid #334155",
   },
   onlineDot: { width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" },
-  userControls: { display: "flex", alignItems: "center", gap: "12px" },
+  userControls: { display: "flex", alignItems: "center", gap: "8px" },
   userPill: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "6px",
     backgroundColor: "#1e293b",
-    padding: "6px 12px",
+    padding: "4px 10px",
     borderRadius: "20px",
-    fontSize: "13px",
+    fontSize: "12px",
   },
   userName: { fontWeight: "600", color: "#e2e8f0" },
   logoutBtn: {
@@ -843,21 +843,20 @@ const styles = {
     border: "none",
     color: "#94a3b8",
     cursor: "pointer",
-    padding: "8px",
+    padding: "6px",
     borderRadius: "8px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
 
-  // Logout Dialog Box
   dialogOverlay: {
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
     backdropFilter: "blur(4px)",
     display: "flex",
     alignItems: "center",
@@ -895,16 +894,14 @@ const styles = {
     cursor: "pointer",
   },
 
-  // Auth Styles
   authWrapper: {
-    height: "100vh",
+    minHeight: "100vh",
     width: "100vw",
     backgroundColor: "#090d16",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
-    overflow: "hidden",
   },
   authGlow: {
     position: "absolute",
@@ -997,7 +994,6 @@ const styles = {
     marginBottom: "16px",
   },
 
-  // Hero Room Join Layout
   heroContainer: {
     flex: 1,
     display: "flex",
@@ -1044,36 +1040,30 @@ const styles = {
     whiteSpace: "nowrap",
   },
 
-  // Dynamic Workspace Layout
   workspaceLayout: {
     flex: 1,
     display: "flex",
     padding: "16px",
     gap: "16px",
-    height: "calc(100vh - 60px)",
+    height: "calc(100vh - 56px)",
     boxSizing: "border-box",
-    overflow: "hidden",
   },
   stageArea: {
     flex: 1,
     display: "flex",
     flexDirection: "column",
-    gap: "16px",
+    gap: "12px",
     position: "relative",
     height: "100%",
-    overflow: "hidden",
     justifyContent: "space-between",
   },
   videoGrid: {
     flex: 1,
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "16px",
+    gap: "12px",
     width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
     overflowY: "auto",
-    maxHeight: "calc(100% - 70px)",
   },
   videoCard: {
     backgroundColor: "#0f172a",
@@ -1083,27 +1073,25 @@ const styles = {
     position: "relative",
     width: "100%",
     height: "100%",
-    maxHeight: "100%",
-    minHeight: "200px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   videoHeader: {
     position: "absolute",
-    top: "12px",
-    left: "12px",
-    right: "12px",
+    top: "10px",
+    left: "10px",
+    right: "10px",
     display: "flex",
     justifyContent: "space-between",
     zIndex: 2,
   },
   videoBadge: {
-    backgroundColor: "rgba(15, 23, 42, 0.8)",
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
     backdropFilter: "blur(8px)",
-    padding: "4px 10px",
-    borderRadius: "12px",
-    fontSize: "12px",
+    padding: "4px 8px",
+    borderRadius: "10px",
+    fontSize: "11px",
     fontWeight: "600",
     color: "#e2e8f0",
     display: "flex",
@@ -1114,38 +1102,34 @@ const styles = {
     backgroundColor: "rgba(234, 179, 8, 0.2)",
     color: "#fde047",
     border: "1px solid rgba(234, 179, 8, 0.4)",
-    padding: "4px 10px",
-    borderRadius: "12px",
-    fontSize: "11px",
+    padding: "4px 8px",
+    borderRadius: "10px",
+    fontSize: "10px",
     fontWeight: "700",
   },
   videoStream: { width: "100%", height: "100%", objectFit: "cover", backgroundColor: "#020617" },
   screenStream: { width: "100%", height: "100%", objectFit: "contain", backgroundColor: "#020617" },
 
-  // Floating Control Dock
   floatingDock: {
-    height: "56px",
+    height: "52px",
     backgroundColor: "rgba(15, 23, 42, 0.95)",
     backdropFilter: "blur(16px)",
     border: "1px solid #1e293b",
-    borderRadius: "20px",
+    borderRadius: "16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     gap: "8px",
-    padding: "0 16px",
+    padding: "0 12px",
     alignSelf: "center",
     boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
     flexShrink: 0,
-    zIndex: 20,
-    position: "relative",
-    maxWidth: "100%",
     boxSizing: "border-box",
   },
   dockBtnActive: {
-    width: "42px",
-    height: "42px",
-    borderRadius: "12px",
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
     backgroundColor: "#1e293b",
     border: "1px solid #334155",
     display: "flex",
@@ -1155,9 +1139,9 @@ const styles = {
     padding: 0,
   },
   dockBtnMuted: {
-    width: "42px",
-    height: "42px",
-    borderRadius: "12px",
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
     backgroundColor: "#7f1d1d",
     border: "1px solid #991b1b",
     display: "flex",
@@ -1167,9 +1151,9 @@ const styles = {
     padding: 0,
   },
   dockBtnSharing: {
-    width: "42px",
-    height: "42px",
-    borderRadius: "12px",
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
     backgroundColor: "#854d0e",
     border: "1px solid #a16207",
     display: "flex",
@@ -1179,9 +1163,9 @@ const styles = {
     padding: 0,
   },
   dockBtnUpload: {
-    width: "42px",
-    height: "42px",
-    borderRadius: "12px",
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
     backgroundColor: "#1e293b",
     border: "1px solid #334155",
     display: "flex",
@@ -1191,25 +1175,23 @@ const styles = {
     padding: 0,
   },
   dockBtnLeaveRed: {
-    padding: "0 14px",
-    height: "42px",
-    borderRadius: "12px",
+    padding: "0 12px",
+    height: "40px",
+    borderRadius: "10px",
     backgroundColor: "#dc2626",
     color: "#ffffff",
     border: "none",
     fontWeight: "600",
-    fontSize: "13px",
+    fontSize: "12px",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     gap: "6px",
-    boxShadow: "0 2px 8px rgba(220, 38, 38, 0.4)",
   },
 
-  // Sidebar Suite Layout
   sideSuite: {
-    width: "380px",
+    width: "360px",
     backgroundColor: "#0f172a",
     border: "1px solid #1e293b",
     borderRadius: "16px",
@@ -1221,7 +1203,7 @@ const styles = {
   tabHeader: { display: "flex", borderBottom: "1px solid #1e293b", backgroundColor: "#090d16" },
   tabBtn: {
     flex: 1,
-    padding: "14px",
+    padding: "12px",
     backgroundColor: "transparent",
     border: "none",
     color: "#64748b",
@@ -1235,7 +1217,7 @@ const styles = {
   },
   tabBtnActive: {
     flex: 1,
-    padding: "14px",
+    padding: "12px",
     backgroundColor: "#0f172a",
     border: "none",
     borderBottom: "2px solid #38bdf8",
@@ -1248,9 +1230,9 @@ const styles = {
     gap: "8px",
     cursor: "pointer",
   },
-  tabBody: { flex: 1, padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column" },
-  paneControls: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" },
-  paneLabel: { fontSize: "12px", fontWeight: "700", textTransform: "uppercase", color: "#64748b", letterSpacing: "0.5px" },
+  tabBody: { flex: 1, padding: "14px", overflowY: "auto", display: "flex", flexDirection: "column" },
+  paneControls: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" },
+  paneLabel: { fontSize: "11px", fontWeight: "700", textTransform: "uppercase", color: "#64748b", letterSpacing: "0.5px" },
   clearBtn: {
     background: "none",
     border: "none",
