@@ -55,6 +55,7 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
   const videoTracks = stream?.getVideoTracks?.() ?? [];
   const audioTracks = stream?.getAudioTracks?.() ?? [];
 
+  // Robustly evaluate mute states based on props AND underlying track track state
   const effectiveVideoMuted =
     isVideoMuted ||
     videoTracks.length === 0 ||
@@ -423,7 +424,8 @@ export default function App() {
       });
 
       socket.on("media-state-change", (data) => {
-        const targetId = data.socketId || data.userId;
+        // Correctly handle both socketId and userId variations emitted from backend servers
+        const targetId = data.socketId || data.userId || data.id;
         if (!targetId) return;
 
         setRemoteStreams((prev) => {
@@ -432,7 +434,7 @@ export default function App() {
             ...prev,
             [targetId]: {
               ...existing,
-              username: existing.username || "Peer",
+              username: existing.username || data.username || "Peer",
               isAudioMuted:
                 data.isAudioMuted !== undefined ? data.isAudioMuted : existing.isAudioMuted ?? false,
               isVideoMuted:
