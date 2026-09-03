@@ -34,6 +34,62 @@ const RTC_CONFIG = {
   ],
 };
 
+// function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVideoMuted = false, isAudioMuted = false }) {
+//   const videoRef = useRef(null);
+
+//   useEffect(() => {
+//     const videoObj = videoRef.current;
+//     if (videoObj && stream) {
+//       videoObj.srcObject = stream;
+
+//       const playPromise = videoObj.play();
+//       if (playPromise !== undefined) {
+//         playPromise.catch((e) => {
+//           console.warn("Autoplay block / playback error, attempting muted fallback:", e);
+//           videoObj.muted = true;
+//           videoObj.play().catch((err) => console.error("Video play completely blocked:", err));
+//         });
+//       }
+//     }
+//   }, [stream]);
+
+//   const cleanName = (username || "User").replace(" ( You )", "").trim();
+//   const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "U";
+
+//   return (
+//     <div className="video-card-element">
+//       <div className="video-header">
+//         <div className="video-badge">
+//           <span className="online-dot"></span>
+//           <span>{username || "Peer"}</span>
+//         </div>
+//         {isScreen && <span className="screen-badge">Sharing Screen</span>}
+//       </div>
+
+//       <div className={`mic-status-overlay ${isAudioMuted ? "muted" : ""}`}>
+//         {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
+//       </div>
+
+//       <video
+//         ref={videoRef}
+//         autoPlay
+//         playsInline
+//         webkit-playsinline="true"
+//         muted={isSelf}
+//         style={{ display: isVideoMuted && !isScreen ? "none" : "block" }}
+//         className={isScreen ? "screen-stream" : "video-stream"}
+//       />
+
+//       {isVideoMuted && !isScreen && (
+//         <div className="avatar-fallback">
+//           <div className="avatar-circle">{initial}</div>
+//           <span className="avatar-name">{username || "Peer"}</span>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
 function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVideoMuted = false, isAudioMuted = false }) {
   const videoRef = useRef(null);
 
@@ -45,13 +101,26 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
       const playPromise = videoObj.play();
       if (playPromise !== undefined) {
         playPromise.catch((e) => {
-          console.warn("Autoplay block / playback error, attempting muted fallback:", e);
           videoObj.muted = true;
           videoObj.play().catch((err) => console.error("Video play completely blocked:", err));
         });
       }
     }
   }, [stream]);
+
+  const videoTracks = stream?.getVideoTracks?.() ?? [];
+  const audioTracks = stream?.getAudioTracks?.() ?? [];
+
+  // Force true if prop is explicitly passed as true OR if the video track is disabled/muted
+  const effectiveVideoMuted =
+    isVideoMuted ||
+    videoTracks.length === 0 ||
+    videoTracks.some((track) => !track.enabled);
+
+  const effectiveAudioMuted =
+    isAudioMuted ||
+    audioTracks.length === 0 ||
+    audioTracks.some((track) => !track.enabled);
 
   const cleanName = (username || "User").replace(" ( You )", "").trim();
   const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "U";
@@ -66,8 +135,8 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
         {isScreen && <span className="screen-badge">Sharing Screen</span>}
       </div>
 
-      <div className={`mic-status-overlay ${isAudioMuted ? "muted" : ""}`}>
-        {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
+      <div className={`mic-status-overlay ${effectiveAudioMuted ? "muted" : ""}`}>
+        {effectiveAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
       </div>
 
       <video
@@ -76,11 +145,11 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
         playsInline
         webkit-playsinline="true"
         muted={isSelf}
-        style={{ display: isVideoMuted && !isScreen ? "none" : "block" }}
+        style={{ display: effectiveVideoMuted && !isScreen ? "none" : "block" }}
         className={isScreen ? "screen-stream" : "video-stream"}
       />
 
-      {isVideoMuted && !isScreen && (
+      {effectiveVideoMuted && !isScreen && (
         <div className="avatar-fallback">
           <div className="avatar-circle">{initial}</div>
           <span className="avatar-name">{username || "Peer"}</span>
