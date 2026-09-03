@@ -303,11 +303,14 @@ export default function App() {
     try {
       const constraints = {
         video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          frameRate: { max: 24 },
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          facingMode: "user"
         },
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -517,7 +520,6 @@ export default function App() {
     e.target.value = "";
   };
 
-  // Scaled Canvas Coordinates for Mobile & Desktop parity
   const getCanvasCoords = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
