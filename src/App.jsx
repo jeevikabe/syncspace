@@ -38,7 +38,12 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false }) {
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
-      videoRef.current.play().catch((e) => console.warn("Autoplay block:", e));
+      
+      // Forces playback on mobile browsers (iOS Safari / Android Chrome autoplay policies)
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => console.warn("Video play error:", e));
+      }
     }
   }, [stream]);
 
@@ -55,7 +60,8 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false }) {
         ref={videoRef}
         autoPlay
         playsInline
-        muted={isSelf}
+        webkit-playsinline="true"
+        muted={isSelf} /* Only mute local self-audio to prevent echo */
         style={isScreen ? styles.screenStream : styles.videoStream}
       />
     </div>
@@ -63,7 +69,6 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false }) {
 }
 
 export default function App() {
-  // Auth States
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [username, setUsername] = useState(localStorage.getItem("username") || "");
   const [authInputUser, setAuthInputUser] = useState("");
@@ -72,10 +77,8 @@ export default function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState("");
 
-  // Logout Dialog State
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  // Room & Stream States
   const [roomId, setRoomId] = useState("room-1");
   const [joined, setJoined] = useState(false);
   const [localStream, setLocalStream] = useState(null);
@@ -85,36 +88,30 @@ export default function App() {
   const [receivedFiles, setReceivedFiles] = useState([]);
   const [activeTab, setActiveTab] = useState("whiteboard");
 
-  // Remote streams: socketId -> { username, stream }
   const [remoteStreams, setRemoteStreams] = useState({});
 
-  // Operational Refs
   const socketRef = useRef();
   const peerConnections = useRef({});
   const cameraStreamRef = useRef(null);
   const currentStreamRef = useRef(null);
   
-  // Whiteboard Canvas State Persistence
   const canvasRef = useRef();
   const offscreenCanvasRef = useRef(null);
   const isDrawing = useRef(false);
 
-  // Prevent Mobile Back Button from leaving page when typing or interacting
+  // Prevent Mobile Back Button exit when focused on inputs
   useEffect(() => {
     window.history.pushState(null, "", window.location.href);
-
     const handleBackButton = () => {
       if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
         document.activeElement.blur();
         window.history.pushState(null, "", window.location.href);
       }
     };
-
     window.addEventListener("popstate", handleBackButton);
     return () => window.removeEventListener("popstate", handleBackButton);
   }, []);
 
-  // Initialize Off-Screen Canvas
   useEffect(() => {
     if (!offscreenCanvasRef.current) {
       const off = document.createElement("canvas");
@@ -124,7 +121,6 @@ export default function App() {
     }
   }, []);
 
-  // Restore canvas state when switching back to Whiteboard tab
   useEffect(() => {
     if (activeTab === "whiteboard" && canvasRef.current && offscreenCanvasRef.current) {
       const ctx = canvasRef.current.getContext("2d");
@@ -132,7 +128,6 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Auth Handlers
   const handleAuth = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -145,7 +140,6 @@ export default function App() {
         body: JSON.stringify({ username: authInputUser, password: authInputPass }),
       });
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error || "Authentication failed");
 
       localStorage.setItem("token", data.token);
@@ -167,10 +161,8 @@ export default function App() {
     if (socketRef.current) socketRef.current.disconnect();
   };
 
-  // Socket Connection Setup
   useEffect(() => {
     if (!token) return;
-
     socketRef.current = io(BACKEND_URL, { auth: { token } });
 
     socketRef.current.on("connect_error", (err) => {
@@ -192,7 +184,7 @@ export default function App() {
     });
   };
 
-  // WebRTC Logic
+  // WebRTC Setup
   const createPeerConnection = (targetSocketId, targetUsername) => {
     if (peerConnections.current[targetSocketId]) {
       return peerConnections.current[targetSocketId];
@@ -310,30 +302,26 @@ export default function App() {
           try {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
           } catch (e) {
-            console.error("Error adding ice candidate", e);
+            console.error("Error adding ICE candidate:", e);
           }
         }
       });
 
       socket.on("user-left", (socketId) => removePeer(socketId));
-
       socket.on("draw-line", (draw) => drawLineOnCanvas(draw.x0, draw.y0, draw.x1, draw.y1, draw.color, false));
       socket.on("clear-canvas", () => clearCanvas(false));
       socket.on("receive-file", (fileObj) => addFileToState(fileObj));
 
     } catch (err) {
-      console.error("Failed to access camera/mic:", err);
+      console.error("Failed to access media devices:", err);
     }
   };
 
-  // Media Toggles
   const toggleAudio = () => {
     const track = currentStreamRef.current?.getAudioTracks()[0];
     if (track) {
       track.enabled = !track.enabled;
       setAudioMuted(!track.enabled);
-    } else {
-      setAudioMuted(!audioMuted);
     }
   };
 
@@ -342,8 +330,6 @@ export default function App() {
     if (track) {
       track.enabled = !track.enabled;
       setVideoMuted(!track.enabled);
-    } else {
-      setVideoMuted(!videoMuted);
     }
   };
 
@@ -371,7 +357,7 @@ export default function App() {
 
         screenTrack.onended = () => stopScreenShare();
       } catch (err) {
-        console.error("Screen sharing failed:", err);
+        console.error("Screen sharing error:", err);
       }
     } else {
       stopScreenShare();
@@ -380,7 +366,6 @@ export default function App() {
 
   const stopScreenShare = async () => {
     const cameraVideoTrack = cameraStreamRef.current?.getVideoTracks()[0];
-
     if (cameraVideoTrack) {
       Object.keys(peerConnections.current).forEach(async (peerId) => {
         const pc = peerConnections.current[peerId];
@@ -419,7 +404,6 @@ export default function App() {
     e.target.value = "";
   };
 
-  // Persistent Canvas Whiteboard Functions
   const startDrawing = (e) => {
     isDrawing.current = true;
     const rect = canvasRef.current.getBoundingClientRect();
@@ -487,7 +471,6 @@ export default function App() {
     }
   };
 
-  // Login Screen
   if (!token) {
     return (
       <div style={styles.authWrapper}>
@@ -554,7 +537,6 @@ export default function App() {
 
   return (
     <div style={styles.appWrapper}>
-      {/* Top Navigation Bar */}
       <header className="navbar-container" style={styles.navbar}>
         <div style={styles.brandGroup}>
           <div style={styles.logoIconSmall}><Zap size={18} color="#38bdf8" /></div>
@@ -578,7 +560,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Confirmation Modal Pop-Up for Logout */}
       {showLogoutDialog && (
         <div style={styles.dialogOverlay}>
           <div style={styles.dialogCard}>
@@ -623,7 +604,6 @@ export default function App() {
         </main>
       ) : (
         <div className="workspace-container" style={styles.workspaceLayout}>
-          {/* Main Stage */}
           <div className="stage-area" style={styles.stageArea}>
             <div className="video-grid" style={styles.videoGrid}>
               <VideoPlayer
@@ -643,7 +623,6 @@ export default function App() {
               ))}
             </div>
 
-            {/* Bottom Floating Dock Control Bar */}
             <div className="floating-dock-bar" style={styles.floatingDock}>
               <button
                 onClick={toggleAudio}
@@ -697,7 +676,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right Collaboration Suite */}
           <aside className="side-suite" style={styles.sideSuite}>
             <div style={styles.tabHeader}>
               <button
@@ -788,7 +766,6 @@ const styles = {
     display: "flex",
     flexDirection: "column",
   },
-
   navbar: {
     minHeight: "56px",
     borderBottom: "1px solid #1e293b",
@@ -849,7 +826,6 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
   },
-
   dialogOverlay: {
     position: "fixed",
     top: 0,
@@ -893,7 +869,6 @@ const styles = {
     fontWeight: "600",
     cursor: "pointer",
   },
-
   authWrapper: {
     minHeight: "100vh",
     width: "100vw",
@@ -993,7 +968,6 @@ const styles = {
     fontSize: "13px",
     marginBottom: "16px",
   },
-
   heroContainer: {
     flex: 1,
     display: "flex",
@@ -1039,7 +1013,6 @@ const styles = {
     cursor: "pointer",
     whiteSpace: "nowrap",
   },
-
   workspaceLayout: {
     flex: 1,
     display: "flex",
@@ -1109,7 +1082,6 @@ const styles = {
   },
   videoStream: { width: "100%", height: "100%", objectFit: "cover", backgroundColor: "#020617" },
   screenStream: { width: "100%", height: "100%", objectFit: "contain", backgroundColor: "#020617" },
-
   floatingDock: {
     height: "52px",
     backgroundColor: "rgba(15, 23, 42, 0.95)",
@@ -1189,7 +1161,6 @@ const styles = {
     justifyContent: "center",
     gap: "6px",
   },
-
   sideSuite: {
     width: "360px",
     backgroundColor: "#0f172a",
@@ -1254,7 +1225,6 @@ const styles = {
     touchAction: "none",
   },
   canvasElement: { width: "100%", height: "100%", cursor: "crosshair" },
-
   filesPane: { display: "flex", flexDirection: "column", height: "100%" },
   emptyState: { fontSize: "13px", color: "#64748b", textAlign: "center", marginTop: "40px" },
   fileList: { display: "flex", flexDirection: "column", gap: "10px" },
