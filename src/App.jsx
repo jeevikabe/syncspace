@@ -52,7 +52,6 @@ function VideoPlayer({
         {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
       </div>
 
-      {/* Always keep the video element mounted so audio/tracks stay active; hide via CSS when video is muted */}
       <video
         ref={videoRef}
         autoPlay
@@ -155,7 +154,6 @@ export default function App() {
     return () => socketRef.current?.disconnect();
   }, [token]);
 
-  // Aggressive Heartbeat to ensure states sync automatically
   useEffect(() => {
     if (!joined || !socketRef.current) return;
     const heartbeat = setInterval(() => {
@@ -227,10 +225,18 @@ export default function App() {
 
   const leaveRoom = () => {
     if (socketRef.current && joined) socketRef.current.emit("leave-room", roomId);
-    if (cameraStreamRef.current) cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+    }
+    if (currentStreamRef.current && currentStreamRef.current !== cameraStreamRef.current) {
+      currentStreamRef.current.getTracks().forEach((t) => t.stop());
+    }
     Object.keys(peerConnections.current).forEach((id) => removePeer(id));
     setLocalStream(null);
+    setRemoteStreams({});
     setJoined(false);
+    setIsScreenSharing(false);
   };
 
   const joinRoom = async () => {
@@ -243,6 +249,8 @@ export default function App() {
       currentStreamRef.current = stream;
       setLocalStream(stream);
       setJoined(true);
+      setAudioMuted(false);
+      setVideoMuted(false);
 
       const socket = socketRef.current;
       socket.emit("join-room", { roomId, username });
@@ -401,7 +409,8 @@ export default function App() {
           if (sender) await sender.replaceTrack(screenTrack);
         });
 
-        currentStreamRef.current = new MediaStream([screenTrack, ...cameraStreamRef.current.getAudioTracks()]);
+        const audioTrack = currentStreamRef.current?.getAudioTracks()[0];
+        currentStreamRef.current = audioTrack ? new MediaStream([screenTrack, audioTrack]) : new MediaStream([screenTrack]);
         setLocalStream(currentStreamRef.current);
         setIsScreenSharing(true);
         screenTrack.onended = stopScreenShare;
@@ -419,13 +428,9 @@ export default function App() {
         if (sender) await sender.replaceTrack(cameraVideoTrack);
       });
     }
-    if (cameraStreamRef.current && currentStreamRef.current) {
-      const audioTrack = currentStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        currentStreamRef.current = new MediaStream([cameraVideoTrack, audioTrack]);
-      } else {
-        currentStreamRef.current = cameraStreamRef.current;
-      }
+    if (cameraStreamRef.current) {
+      const audioTrack = currentStreamRef.current?.getAudioTracks()[0];
+      currentStreamRef.current = audioTrack ? new MediaStream([cameraVideoTrack, audioTrack]) : cameraStreamRef.current;
     }
     setLocalStream(currentStreamRef.current);
     setIsScreenSharing(false);
