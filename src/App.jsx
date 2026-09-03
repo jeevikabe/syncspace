@@ -26,7 +26,6 @@ import "./App.css";
 
 const BACKEND_URL = "https://syncspace-backend-8f4l.onrender.com";
 
-// Public STUN + TURN configurations for peer connection cross-network relaying
 const RTC_CONFIG = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -58,7 +57,7 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
       videoElem.onloadedmetadata = () => {
         videoElem
           .play()
-          .catch((err) => console.warn("Video playback attempt warning:", err));
+          .catch((err) => console.warn("Video playback warning:", err));
       };
     } else {
       videoElem.srcObject = null;
@@ -121,7 +120,6 @@ export default function App() {
   
   const [activeTab, setActiveTab] = useState("whiteboard");
   const [mobileView, setMobileView] = useState("video");
-  const [isMobileDevice, setIsMobileDevice] = useState(false);
 
   const [remoteStreams, setRemoteStreams] = useState({});
 
@@ -133,11 +131,6 @@ export default function App() {
   const canvasRef = useRef();
   const offscreenCanvasRef = useRef(null);
   const isDrawing = useRef(false);
-
-  useEffect(() => {
-    const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    setIsMobileDevice(checkMobile);
-  }, []);
 
   useEffect(() => {
     if (!offscreenCanvasRef.current) {
@@ -179,11 +172,11 @@ export default function App() {
   };
 
   const confirmLogout = () => {
+    leaveRoom();
     localStorage.removeItem("token");
     localStorage.removeItem("username");
     setToken("");
     setUsername("");
-    setJoined(false);
     setShowLogoutDialog(false);
     if (socketRef.current) socketRef.current.disconnect();
   };
@@ -202,18 +195,22 @@ export default function App() {
     };
   }, [token]);
 
-  const addFileToState = (fileObj) => {
-    setReceivedFiles((prev) => {
-      if (prev.some((f) => f.id === fileObj.id)) return prev;
-      const blob = new Blob([fileObj.fileData], { type: fileObj.fileType });
-      const url = URL.createObjectURL(blob);
-      return [...prev, { ...fileObj, url, isImage: fileObj.fileType.startsWith("image/") }];
+  const removePeer = (targetSocketId) => {
+    if (peerConnections.current[targetSocketId]) {
+      peerConnections.current[targetSocketId].close();
+      delete peerConnections.current[targetSocketId];
+    }
+    setRemoteStreams((prev) => {
+      const updated = { ...prev };
+      delete updated[targetSocketId];
+      return updated;
     });
   };
 
   const createPeerConnection = (targetSocketId, targetUsername) => {
+    // If a connection already exists for this socket, clean it up first to avoid duplicate stream panels
     if (peerConnections.current[targetSocketId]) {
-      return peerConnections.current[targetSocketId];
+      peerConnections.current[targetSocketId].close();
     }
 
     const pc = new RTCPeerConnection(RTC_CONFIG);
@@ -247,9 +244,7 @@ export default function App() {
     };
 
     pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
-        pc.restartIce();
-      } else if (pc.iceConnectionState === "closed") {
+      if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "closed") {
         removePeer(targetSocketId);
       }
     };
@@ -257,15 +252,12 @@ export default function App() {
     return pc;
   };
 
-  const removePeer = (targetSocketId) => {
-    if (peerConnections.current[targetSocketId]) {
-      peerConnections.current[targetSocketId].close();
-      delete peerConnections.current[targetSocketId];
-    }
-    setRemoteStreams((prev) => {
-      const updated = { ...prev };
-      delete updated[targetSocketId];
-      return updated;
+  const addFileToState = (fileObj) => {
+    setReceivedFiles((prev) => {
+      if (prev.some((f) => f.id === fileObj.id)) return prev;
+      const blob = new Blob([fileObj.fileData], { type: fileObj.fileType });
+      const url = URL.createObjectURL(blob);
+      return [...prev, { ...fileObj, url, isImage: fileObj.fileType.startsWith("image/") }];
     });
   };
 
@@ -351,14 +343,39 @@ export default function App() {
         });
       });
 
-      socket.on("user-left", (socketId) => removePeer(socketId));
+      socket.on("user-left", (socketId) => {
+        removePeer(socketId);
+      });
+
       socket.on("draw-line", (draw) => drawLineOnCanvas(draw.x0, draw.y0, draw.x1, draw.y1, draw.color, false));
       socket.on("clear-canvas", () => clearCanvas(false));
       socket.on("receive-file", (fileObj) => addFileToState(fileObj));
 
     } catch (err) {
-      console.error("Failed to access camera/mic:", err);
+      console.error("Failed to access media devices:", err);
     }
+  };
+
+  const leaveRoom = () => {
+    if (socketRef.current && joined) {
+      socketRef.current.emit("leave-room", roomId);
+    }
+
+    if (currentStreamRef.current) {
+      currentStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+
+    Object.keys(peerConnections.current).forEach((targetSocketId) => {
+      removePeer(targetSocketId);
+    });
+
+    setLocalStream(null);
+    setRemoteStreams({});
+    setJoined(false);
+    setIsScreenSharing(false);
   };
 
   const toggleAudio = () => {
@@ -739,7 +756,7 @@ export default function App() {
                 </label>
 
                 <button
-                  onClick={() => setJoined(false)}
+                  onClick={leaveRoom}
                   className="dock-btn-leave"
                   title="Leave Room"
                 >
