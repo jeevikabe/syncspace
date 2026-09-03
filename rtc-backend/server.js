@@ -1,5 +1,5 @@
 const express = require("express");
-const http = require("http"); // or standard http setup
+const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 
@@ -63,8 +63,11 @@ io.on("connection", (socket) => {
       socketRoomMap[socket.id].isVideoMuted = isVideoMuted;
     }
 
-    socket.to(roomId).emit("media-state-change", {
+    // Broadcast to everyone in the room including the sender so state stays 100% synchronized across all views
+    io.in(roomId).emit("media-state-change", {
       socketId: socket.id,
+      userId: socket.id,
+      id: socket.id,
       isAudioMuted,
       isVideoMuted,
     });
