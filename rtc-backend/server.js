@@ -1,5 +1,5 @@
 const express = require("express");
-const http = http = require("http"); // or standard http setup
+const http = require("http"); // or standard http setup
 const { Server } = require("socket.io");
 const cors = require("cors");
 
