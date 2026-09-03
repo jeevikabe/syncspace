@@ -113,6 +113,9 @@ export default function App() {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [receivedFiles, setReceivedFiles] = useState([]);
   
+  // Teams-style Notification Banner State
+  const [notification, setNotification] = useState("");
+  
   // UI Active Tabs (Responsive Support)
   const [activeTab, setActiveTab] = useState("whiteboard");
   const [mobileView, setMobileView] = useState("video"); // 'video' | 'suite'
@@ -227,8 +230,12 @@ export default function App() {
       peerConnections.current[targetSocketId].close();
       delete peerConnections.current[targetSocketId];
     }
+    
     setRemoteStreams((prev) => {
       const updated = { ...prev };
+      if (updated[targetSocketId]?.stream) {
+        updated[targetSocketId].stream.getTracks().forEach((track) => track.stop());
+      }
       delete updated[targetSocketId];
       return updated;
     });
@@ -386,8 +393,14 @@ export default function App() {
         });
       });
 
-      // Crucial Fix: Immediately remove leaving peer (Rathna) from state and close WebRTC peer connection
+      // Teams-Style Left Notification Banner & Stream Cleanup
       socket.on("user-left", (socketId) => {
+        setRemoteStreams((prev) => {
+          const leftPeerName = prev[socketId]?.username || "A participant";
+          setNotification(`${leftPeerName} left the meeting`);
+          setTimeout(() => setNotification(""), 4000);
+          return prev;
+        });
         removePeer(socketId);
       });
 
@@ -667,6 +680,14 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* Teams-Style Notification Toast Banner */}
+      {notification && (
+        <div className="teams-toast-banner">
+          <AlertTriangle size={16} color="#f59e0b" />
+          <span>{notification}</span>
+        </div>
+      )}
 
       {showLogoutDialog && (
         <div className="dialog-overlay">
