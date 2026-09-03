@@ -66,7 +66,6 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
         {isScreen && <span className="screen-badge">Sharing Screen</span>}
       </div>
 
-      {/* Teams-Style Mic Indicator Badge */}
       <div className={`mic-status-overlay ${isAudioMuted ? "muted" : ""}`}>
         {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
       </div>
@@ -92,7 +91,6 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
 }
 
 export default function App() {
-  // Auth States
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [username, setUsername] = useState(localStorage.getItem("username") || "");
   const [authInputUser, setAuthInputUser] = useState("");
@@ -101,10 +99,8 @@ export default function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState("");
 
-  // Logout Dialog State
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  // Room & Stream States
   const [roomId, setRoomId] = useState("room-1");
   const [joined, setJoined] = useState(false);
   const [localStream, setLocalStream] = useState(null);
@@ -113,24 +109,19 @@ export default function App() {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [receivedFiles, setReceivedFiles] = useState([]);
   
-  // Teams-style Notification Banner State
   const [notification, setNotification] = useState("");
   
-  // UI Active Tabs (Responsive Support)
   const [activeTab, setActiveTab] = useState("whiteboard");
-  const [mobileView, setMobileView] = useState("video"); // 'video' | 'suite'
+  const [mobileView, setMobileView] = useState("video"); 
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
-  // Remote streams: socketId -> { username, stream, audioMuted, videoMuted }
   const [remoteStreams, setRemoteStreams] = useState({});
 
-  // Operational Refs
   const socketRef = useRef();
   const peerConnections = useRef({});
   const cameraStreamRef = useRef(null);
   const currentStreamRef = useRef(null);
 
-  // Whiteboard Canvas State
   const canvasRef = useRef();
   const offscreenCanvasRef = useRef(null);
   const isDrawing = useRef(false);
@@ -276,7 +267,6 @@ export default function App() {
       }));
     };
 
-    // Automatically remove peer on disconnection or failure to prevent frozen stream tiles
     pc.oniceconnectionstatechange = () => {
       if (
         pc.iceConnectionState === "disconnected" || 
@@ -399,7 +389,6 @@ export default function App() {
         });
       });
 
-      // Teams-Style Left Notification Banner & Stream Cleanup
       socket.on("user-left", (socketId) => {
         setRemoteStreams((prev) => {
           const leftPeerName = prev[socketId]?.username || "A participant";
@@ -447,14 +436,12 @@ export default function App() {
   };
 
   const toggleScreenShare = async () => {
-    if (isMobileDevice) {
-      alert("Screen sharing is not supported on mobile web browsers.");
-      return;
-    }
-
     if (!isScreenSharing) {
       try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenStream = navigator.mediaDevices.getDisplayMedia
+          ? await navigator.mediaDevices.getDisplayMedia({ video: true })
+          : await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+
         const screenTrack = screenStream.getVideoTracks()[0];
 
         for (const peerId of Object.keys(peerConnections.current)) {
@@ -476,6 +463,7 @@ export default function App() {
         screenTrack.onended = () => stopScreenShare();
       } catch (err) {
         console.error("Screen sharing error:", err);
+        alert("Screen sharing could not be started on this mobile browser.");
       }
     } else {
       stopScreenShare();
@@ -686,7 +674,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Teams-Style Notification Toast Banner */}
       {notification && (
         <div className="teams-toast-banner">
           <AlertTriangle size={16} color="#f59e0b" />
@@ -738,7 +725,6 @@ export default function App() {
         </main>
       ) : (
         <>
-          {/* Mobile Switcher Bar */}
           <div className="mobile-bar-switch">
             <button
               className={`mobile-switch-btn ${mobileView === 'video' ? 'active' : ''}`}
@@ -797,14 +783,8 @@ export default function App() {
 
                 <button
                   onClick={toggleScreenShare}
-                  className={
-                    isMobileDevice 
-                      ? "dock-btn-disabled" 
-                      : isScreenSharing 
-                        ? "dock-btn-sharing" 
-                        : "dock-btn-active"
-                  }
-                  title={isMobileDevice ? "Not supported on mobile" : isScreenSharing ? "Stop Screen Share" : "Share Screen"}
+                  className={isScreenSharing ? "dock-btn-sharing" : "dock-btn-active"}
+                  title={isScreenSharing ? "Stop Screen Share" : "Share Screen"}
                 >
                   {isScreenSharing ? <StopCircle size={20} color="#fef08a" /> : <ScreenShare size={20} color="#f8fafc" />}
                 </button>

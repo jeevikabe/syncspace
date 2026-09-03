@@ -277,8 +277,35 @@ body, html, #root {
 
 .mobile-bar-switch { display: none; }
 
-/* Responsive UI Overrides */
+/* Responsive UI Overrides & Mobile Top Navbar Cleanup */
 @media (max-width: 768px) {
+  .navbar-container {
+    padding: 6px 10px;
+    gap: 4px;
+  }
+  
+  .brand-title {
+    font-size: 14px;
+  }
+  
+  .brand-highlight {
+    display: none; /* Hides "Studio" text to prevent cluttering the mobile header */
+  }
+
+  .room-status-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+
+  .user-pill {
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+
   .mobile-bar-switch {
     display: flex; background: #0f172a; border-bottom: 1px solid #1e293b; padding: 6px 12px; gap: 8px;
   }
