@@ -31,9 +31,8 @@ function VideoPlayer({
       videoRef.current.srcObject = stream;
       videoRef.current.play().catch((err) => console.log("Autoplay:", err));
     }
-  }, [stream, isVideoMuted, isScreen]); 
+  }, [stream, isScreen]); 
 
-  // Absolute fallback trigger: if strictly true or no track exists
   const effectiveVideoMuted = isVideoMuted === true || !stream || stream.getVideoTracks().length === 0;
 
   const cleanName = (username || "Peer").replace(" ( You )", "").replace(" (You)", "").trim();
@@ -53,16 +52,17 @@ function VideoPlayer({
         {isAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
       </div>
 
-      {/* When effectiveVideoMuted is true, the video tag is completely destroyed, guaranteeing the avatar shows */}
-      {!effectiveVideoMuted || isScreen ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={isSelf}
-          className={isScreen ? "screen-stream" : "video-stream"}
-        />
-      ) : (
+      {/* Always keep the video element mounted so audio/tracks stay active; hide via CSS when video is muted */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isSelf}
+        className={isScreen ? "screen-stream" : "video-stream"}
+        style={{ display: (effectiveVideoMuted && !isScreen) ? "none" : "block" }}
+      />
+
+      {effectiveVideoMuted && !isScreen && (
         <div className="avatar-fallback">
           <div className="avatar-circle">{initial}</div>
           <span className="avatar-name">{cleanName || "Peer"}</span>
@@ -316,7 +316,6 @@ export default function App() {
         }
       });
 
-      // SLEDGEHAMMER FIX: Force React update without equality checks, ensuring state applies instantly
       socket.on("media-state-change", (data) => {
         const targetId = data.socketId;
         if (!targetId || targetId === socketRef.current.id) return;
@@ -371,29 +370,13 @@ export default function App() {
     }
   };
 
-  // const toggleVideo = () => {
-  //   const track = currentStreamRef.current?.getVideoTracks()[0];
-  //   if (track) {
-  //     const nextState = !videoMuted;
-  //     track.enabled = !nextState;
-  //     setVideoMuted(nextState);
-  //     socketRef.current?.emit("media-state-change", {
-  //       roomId,
-  //       socketId: socketRef.current?.id,
-  //       isAudioMuted: audioMuted,
-  //       isVideoMuted: nextState,
-  //     });
-  //   }
-  // };
-
   const toggleVideo = () => {
     const videoTrack = cameraStreamRef.current?.getVideoTracks()[0];
     if (videoTrack) {
       const nextState = !videoMuted;
-      videoTrack.enabled = !nextState; // Only toggle the video track's enabled state
+      videoTrack.enabled = !nextState; 
       setVideoMuted(nextState);
 
-      // Broadcast the state change while strictly keeping audio status as-is
       socketRef.current?.emit("media-state-change", {
         roomId,
         socketId: socketRef.current?.id,
@@ -402,7 +385,6 @@ export default function App() {
       });
     }
   };
-
 
   const toggleScreenShare = async () => {
     if (!isScreenSharing) {
@@ -437,7 +419,6 @@ export default function App() {
         if (sender) await sender.replaceTrack(cameraVideoTrack);
       });
     }
-    // Only update the video portion, keeping the original audio stream pipeline completely untouched
     if (cameraStreamRef.current && currentStreamRef.current) {
       const audioTrack = currentStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
@@ -449,20 +430,6 @@ export default function App() {
     setLocalStream(currentStreamRef.current);
     setIsScreenSharing(false);
   };
-  
-
-  // const stopScreenShare = async () => {
-  //   const cameraVideoTrack = cameraStreamRef.current?.getVideoTracks()[0];
-  //   if (cameraVideoTrack) {
-  //     Object.keys(peerConnections.current).forEach(async (peerId) => {
-  //       const sender = peerConnections.current[peerId].getSenders().find((s) => s.track?.kind === "video");
-  //       if (sender) await sender.replaceTrack(cameraVideoTrack);
-  //     });
-  //   }
-  //   currentStreamRef.current = cameraStreamRef.current;
-  //   setLocalStream(cameraStreamRef.current);
-  //   setIsScreenSharing(false);
-  // };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
