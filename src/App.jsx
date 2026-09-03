@@ -14,13 +14,11 @@ import {
   LogOut,
   Edit3,
   FileText,
-  ShieldCheck,
   Zap,
   AlertTriangle,
   PhoneOff,
   Eye,
   EyeOff,
-  Layout,
 } from "lucide-react";
 import "./App.css";
 
@@ -33,9 +31,21 @@ const RTC_CONFIG = {
   ],
 };
 
-function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVideoMuted = false, isAudioMuted = false }) {
+function VideoPlayer({
+  stream,
+  username,
+  isSelf = false,
+  isScreen = false,
+  isVideoMuted = false,
+  isAudioMuted = false,
+}) {
   const videoRef = useRef(null);
+  const [trackMutedState, setTrackMutedState] = useState({
+    video: false,
+    audio: false,
+  });
 
+  // Attach media stream to HTML video tag
   useEffect(() => {
     const videoObj = videoRef.current;
     if (videoObj && stream) {
@@ -47,22 +57,70 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
     }
   }, [stream]);
 
+  // Listen directly to WebRTC track mute / unmute network events
+  useEffect(() => {
+    if (!stream) return;
+
+    const vTrack = stream.getVideoTracks()[0];
+    const aTrack = stream.getAudioTracks()[0];
+
+    const syncTrackState = () => {
+      setTrackMutedState({
+        video: !vTrack || !vTrack.enabled || vTrack.muted,
+        audio: !aTrack || !aTrack.enabled || aTrack.muted,
+      });
+    };
+
+    syncTrackState();
+
+    if (vTrack) {
+      vTrack.onmute = syncTrackState;
+      vTrack.onunmute = syncTrackState;
+      vTrack.onended = syncTrackState;
+    }
+    if (aTrack) {
+      aTrack.onmute = syncTrackState;
+      aTrack.onunmute = syncTrackState;
+      aTrack.onended = syncTrackState;
+    }
+
+    return () => {
+      if (vTrack) {
+        vTrack.onmute = null;
+        vTrack.onunmute = null;
+        vTrack.onended = null;
+      }
+      if (aTrack) {
+        aTrack.onmute = null;
+        aTrack.onunmute = null;
+        aTrack.onended = null;
+      }
+    };
+  }, [stream]);
+
   const videoTracks = stream?.getVideoTracks?.() ?? [];
   const audioTracks = stream?.getAudioTracks?.() ?? [];
 
-  // Track level enforcement + Prop level enforcement combined
+  // Dual enforcement: State prop OR WebRTC Track Mute status
   const effectiveVideoMuted =
     isVideoMuted ||
+    !stream ||
     videoTracks.length === 0 ||
-    videoTracks.some((track) => !track.enabled);
+    trackMutedState.video ||
+    videoTracks.some((t) => !t.enabled || t.muted);
 
   const effectiveAudioMuted =
     isAudioMuted ||
+    !stream ||
     audioTracks.length === 0 ||
-    audioTracks.some((track) => !track.enabled);
+    trackMutedState.audio ||
+    audioTracks.some((t) => !t.enabled || t.muted);
 
-  const cleanName = (username || "Peer").replace(" ( You )", "").trim();
-  const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "U";
+  const cleanName = (username || "Peer")
+    .replace(" ( You )", "")
+    .replace(" (You)", "")
+    .trim();
+  const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "P";
 
   return (
     <div className="video-card-element">
@@ -75,7 +133,11 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
       </div>
 
       <div className={`mic-status-overlay ${effectiveAudioMuted ? "muted" : ""}`}>
-        {effectiveAudioMuted ? <MicOff size={14} color="#ffffff" /> : <Mic size={14} color="#10b981" />}
+        {effectiveAudioMuted ? (
+          <MicOff size={14} color="#ffffff" />
+        ) : (
+          <Mic size={14} color="#10b981" />
+        )}
       </div>
 
       <video
@@ -90,7 +152,7 @@ function VideoPlayer({ stream, username, isSelf = false, isScreen = false, isVid
       {effectiveVideoMuted && !isScreen && (
         <div className="avatar-fallback">
           <div className="avatar-circle">{initial}</div>
-          <span className="avatar-name">{username || "Peer"}</span>
+          <span className="avatar-name">{cleanName || "Peer"}</span>
         </div>
       )}
     </div>
@@ -116,7 +178,6 @@ export default function App() {
   const [receivedFiles, setReceivedFiles] = useState([]);
   const [notification, setNotification] = useState("");
   const [activeTab, setActiveTab] = useState("whiteboard");
-  const [mobileView, setMobileView] = useState("video");
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
   const [remoteStreams, setRemoteStreams] = useState({});
@@ -131,7 +192,11 @@ export default function App() {
   const isDrawing = useRef(false);
 
   useEffect(() => {
-    setIsMobileDevice(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    setIsMobileDevice(
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      )
+    );
   }, []);
 
   useEffect(() => {
@@ -210,7 +275,10 @@ export default function App() {
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
-        socketRef.current.emit("ice-candidate", { target: targetSocketId, candidate: event.candidate });
+        socketRef.current.emit("ice-candidate", {
+          target: targetSocketId,
+          candidate: event.candidate,
+        });
       }
     };
 
@@ -242,7 +310,8 @@ export default function App() {
 
   const leaveRoom = () => {
     if (socketRef.current && joined) socketRef.current.emit("leave-room", roomId);
-    if (cameraStreamRef.current) cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+    if (cameraStreamRef.current)
+      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
     Object.keys(peerConnections.current).forEach((id) => removePeer(id));
     setLocalStream(null);
     setJoined(false);
@@ -288,27 +357,37 @@ export default function App() {
           const pc = createPeerConnection(u.socketId, u.username);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
-          socket.emit("offer", { target: u.socketId, callerUsername: username, sdp: pc.localDescription });
+          socket.emit("offer", {
+            target: u.socketId,
+            callerUsername: username,
+            sdp: pc.localDescription,
+          });
         }
       });
 
-      socket.on("user-connected", ({ socketId, username: newUsername, isAudioMuted, isVideoMuted }) => {
-        setRemoteStreams((prev) => ({
-          ...prev,
-          [socketId]: {
-            ...(prev[socketId] || {}),
-            username: newUsername || "Peer",
-            isAudioMuted: isAudioMuted || false,
-            isVideoMuted: isVideoMuted || false,
-          },
-        }));
-        createPeerConnection(socketId, newUsername);
-      });
+      socket.on(
+        "user-connected",
+        ({ socketId, username: newUsername, isAudioMuted, isVideoMuted }) => {
+          setRemoteStreams((prev) => ({
+            ...prev,
+            [socketId]: {
+              ...(prev[socketId] || {}),
+              username: newUsername || "Peer",
+              isAudioMuted: isAudioMuted || false,
+              isVideoMuted: isVideoMuted || false,
+            },
+          }));
+          createPeerConnection(socketId, newUsername);
+        }
+      );
 
       socket.on("offer", async ({ callerId, callerUsername, sdp }) => {
         setRemoteStreams((prev) => ({
           ...prev,
-          [callerId]: { ...(prev[callerId] || {}), username: callerUsername || "Peer" },
+          [callerId]: {
+            ...(prev[callerId] || {}),
+            username: callerUsername || "Peer",
+          },
         }));
         const pc = createPeerConnection(callerId, callerUsername);
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
@@ -325,14 +404,15 @@ export default function App() {
       socket.on("ice-candidate", async ({ callerId, candidate }) => {
         const pc = peerConnections.current[callerId];
         if (pc && candidate) {
-          try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {}
         }
       });
 
-      // ROBUST MATCHING FOR MEDIA STATE CHANGES
       socket.on("media-state-change", (data) => {
         const targetId = data.socketId || data.userId || data.id;
-        if (!targetId || targetId === socket.id) return; // Skip own updates
+        if (!targetId || targetId === socket.id) return;
 
         setRemoteStreams((prev) => {
           const existing = prev[targetId] || {};
@@ -358,12 +438,16 @@ export default function App() {
         removePeer(socketId);
       });
 
-      socket.on("draw-line", (d) => drawLineOnCanvas(d.x0, d.y0, d.x1, d.y1, d.color, false));
+      socket.on("draw-line", (d) =>
+        drawLineOnCanvas(d.x0, d.y0, d.x1, d.y1, d.color, false)
+      );
       socket.on("clear-canvas", () => clearCanvas(false));
       socket.on("receive-file", (f) => {
         setReceivedFiles((prev) => {
           if (prev.some((item) => item.id === f.id)) return prev;
-          const url = URL.createObjectURL(new Blob([f.fileData], { type: f.fileType }));
+          const url = URL.createObjectURL(
+            new Blob([f.fileData], { type: f.fileType })
+          );
           return [...prev, { ...f, url, isImage: f.fileType.startsWith("image/") }];
         });
       });
@@ -407,15 +491,22 @@ export default function App() {
         return;
       }
       try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+        });
         const screenTrack = screenStream.getVideoTracks()[0];
 
         Object.keys(peerConnections.current).forEach(async (peerId) => {
-          const sender = peerConnections.current[peerId].getSenders().find((s) => s.track?.kind === "video");
+          const sender = peerConnections.current[peerId]
+            .getSenders()
+            .find((s) => s.track?.kind === "video");
           if (sender) await sender.replaceTrack(screenTrack);
         });
 
-        currentStreamRef.current = new MediaStream([screenTrack, ...cameraStreamRef.current.getAudioTracks()]);
+        currentStreamRef.current = new MediaStream([
+          screenTrack,
+          ...cameraStreamRef.current.getAudioTracks(),
+        ]);
         setLocalStream(currentStreamRef.current);
         setIsScreenSharing(true);
         screenTrack.onended = stopScreenShare;
@@ -429,7 +520,9 @@ export default function App() {
     const cameraVideoTrack = cameraStreamRef.current?.getVideoTracks()[0];
     if (cameraVideoTrack) {
       Object.keys(peerConnections.current).forEach(async (peerId) => {
-        const sender = peerConnections.current[peerId].getSenders().find((s) => s.track?.kind === "video");
+        const sender = peerConnections.current[peerId]
+          .getSenders()
+          .find((s) => s.track?.kind === "video");
         if (sender) await sender.replaceTrack(cameraVideoTrack);
       });
     }
@@ -451,7 +544,14 @@ export default function App() {
         sender: username,
       };
       socketRef.current?.emit("send-file", { roomId, fileObj });
-      setReceivedFiles((prev) => [...prev, { ...fileObj, url: URL.createObjectURL(file), isImage: file.type.startsWith("image/") }]);
+      setReceivedFiles((prev) => [
+        ...prev,
+        {
+          ...fileObj,
+          url: URL.createObjectURL(file),
+          isImage: file.type.startsWith("image/"),
+        },
+      ]);
     };
     reader.readAsArrayBuffer(file);
     e.target.value = "";
@@ -480,7 +580,11 @@ export default function App() {
       ctx.stroke();
       ctx.closePath();
     });
-    if (emit) socketRef.current?.emit("draw-line", { roomId, drawData: { x0, y0, x1, y1, color } });
+    if (emit)
+      socketRef.current?.emit("draw-line", {
+        roomId,
+        drawData: { x0, y0, x1, y1, color },
+      });
   };
 
   const clearCanvas = (emit = true) => {
@@ -496,7 +600,9 @@ export default function App() {
         <div className="auth-glow"></div>
         <div className="auth-card">
           <div className="auth-header">
-            <div className="logo-icon"><Zap size={24} color="#38bdf8" /></div>
+            <div className="logo-icon">
+              <Zap size={24} color="#38bdf8" />
+            </div>
             <h2 className="auth-title">SyncSpace Studio</h2>
             <p className="auth-subtitle">Encrypted Collaboration Portal</p>
           </div>
@@ -504,20 +610,50 @@ export default function App() {
           <form onSubmit={handleAuth} className="form-stack">
             <div className="input-group">
               <label className="label">Username</label>
-              <input type="text" placeholder="Username" value={authInputUser} onChange={(e) => setAuthInputUser(e.target.value)} className="input" required />
+              <input
+                type="text"
+                placeholder="Username"
+                value={authInputUser}
+                onChange={(e) => setAuthInputUser(e.target.value)}
+                className="input"
+                required
+              />
             </div>
             <div className="input-group">
               <label className="label">Password</label>
               <div style={{ position: "relative", width: "100%" }}>
-                <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={authInputPass} onChange={(e) => setAuthInputPass(e.target.value)} className="input" style={{ width: "100%", paddingRight: "40px" }} required />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn">
-                  {showPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={authInputPass}
+                  onChange={(e) => setAuthInputPass(e.target.value)}
+                  className="input"
+                  style={{ width: "100%", paddingRight: "40px" }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="eye-btn"
+                >
+                  {showPassword ? (
+                    <EyeOff size={18} color="#94a3b8" />
+                  ) : (
+                    <Eye size={18} color="#94a3b8" />
+                  )}
                 </button>
               </div>
             </div>
-            <button type="submit" className="primary-auth-btn">{isRegistering ? "Register" : "Sign In"}</button>
-            <div className="toggle-text" onClick={() => setIsRegistering(!isRegistering)}>
-              {isRegistering ? "Already have an account? Sign In" : "Need account? Register"}
+            <button type="submit" className="primary-auth-btn">
+              {isRegistering ? "Register" : "Sign In"}
+            </button>
+            <div
+              className="toggle-text"
+              onClick={() => setIsRegistering(!isRegistering)}
+            >
+              {isRegistering
+                ? "Already have an account? Sign In"
+                : "Need account? Register"}
             </div>
           </form>
         </div>
@@ -529,17 +665,35 @@ export default function App() {
     <div className="app-wrapper">
       <header className="navbar-container">
         <div className="brand-group">
-          <div className="logo-icon-small"><Zap size={18} color="#38bdf8" /></div>
-          <span className="brand-title">SyncSpace <span className="brand-highlight">Studio</span></span>
+          <div className="logo-icon-small">
+            <Zap size={18} color="#38bdf8" />
+          </div>
+          <span className="brand-title">
+            SyncSpace <span className="brand-highlight">Studio</span>
+          </span>
         </div>
-        {joined && <div className="room-status-badge"><span className="online-dot"></span> Room: <strong>{roomId}</strong></div>}
+        {joined && (
+          <div className="room-status-badge">
+            <span className="online-dot"></span> Room: <strong>{roomId}</strong>
+          </div>
+        )}
         <div className="user-controls">
-          <div className="user-pill"><User size={14} color="#a1a1aa" /><span className="user-name">{username}</span></div>
-          <button onClick={() => setShowLogoutDialog(true)} className="logout-btn"><LogOut size={16} /></button>
+          <div className="user-pill">
+            <User size={14} color="#a1a1aa" />
+            <span className="user-name">{username}</span>
+          </div>
+          <button onClick={() => setShowLogoutDialog(true)} className="logout-btn">
+            <LogOut size={16} />
+          </button>
         </div>
       </header>
 
-      {notification && <div className="teams-toast-banner"><AlertTriangle size={16} color="#f59e0b" /><span>{notification}</span></div>}
+      {notification && (
+        <div className="teams-toast-banner">
+          <AlertTriangle size={16} color="#f59e0b" />
+          <span>{notification}</span>
+        </div>
+      )}
 
       {showLogoutDialog && (
         <div className="dialog-overlay">
@@ -547,8 +701,15 @@ export default function App() {
             <h3 className="dialog-title">Confirm Logout</h3>
             <p className="dialog-text">Are you sure you want to sign out?</p>
             <div className="dialog-actions">
-              <button onClick={() => setShowLogoutDialog(false)} className="cancel-btn">Cancel</button>
-              <button onClick={confirmLogout} className="confirm-logout-btn">Logout</button>
+              <button
+                onClick={() => setShowLogoutDialog(false)}
+                className="cancel-btn"
+              >
+                Cancel
+              </button>
+              <button onClick={confirmLogout} className="confirm-logout-btn">
+                Logout
+              </button>
             </div>
           </div>
         </div>
@@ -559,8 +720,15 @@ export default function App() {
           <div className="hero-card">
             <h1 className="hero-title">Join Video Session</h1>
             <div className="join-input-stack">
-              <input type="text" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="hero-input" />
-              <button onClick={joinRoom} className="hero-join-btn">Launch Session</button>
+              <input
+                type="text"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                className="hero-input"
+              />
+              <button onClick={joinRoom} className="hero-join-btn">
+                Launch Session
+              </button>
             </div>
           </div>
         </main>
@@ -568,52 +736,166 @@ export default function App() {
         <div className="workspace-layout show-video">
           <div className="stage-area">
             <div className="video-grid">
-              <VideoPlayer stream={localStream} username={`${username} ( You )`} isSelf={true} isScreen={isScreenSharing} isVideoMuted={videoMuted} isAudioMuted={audioMuted} />
+              <VideoPlayer
+                stream={localStream}
+                username={`${username} ( You )`}
+                isSelf={true}
+                isScreen={isScreenSharing}
+                isVideoMuted={videoMuted}
+                isAudioMuted={audioMuted}
+              />
               {Object.entries(remoteStreams).map(([id, remote]) => (
-                <VideoPlayer key={id} stream={remote.stream} username={remote.username} isSelf={false} isVideoMuted={remote.isVideoMuted} isAudioMuted={remote.isAudioMuted} />
+                <VideoPlayer
+                  key={id}
+                  stream={remote.stream}
+                  username={remote.username}
+                  isSelf={false}
+                  isVideoMuted={remote.isVideoMuted}
+                  isAudioMuted={remote.isAudioMuted}
+                />
               ))}
             </div>
 
             <div className="floating-dock">
-              <button onClick={toggleAudio} className={audioMuted ? "dock-btn-muted" : "dock-btn-active"}>
-                {audioMuted ? <MicOff size={20} color="#fca5a5" /> : <Mic size={20} color="#f8fafc" />}
+              <button
+                onClick={toggleAudio}
+                className={audioMuted ? "dock-btn-muted" : "dock-btn-active"}
+              >
+                {audioMuted ? (
+                  <MicOff size={20} color="#fca5a5" />
+                ) : (
+                  <Mic size={20} color="#f8fafc" />
+                )}
               </button>
-              <button onClick={toggleVideo} className={videoMuted ? "dock-btn-muted" : "dock-btn-active"}>
-                {videoMuted ? <VideoOff size={20} color="#fca5a5" /> : <Video size={20} color="#f8fafc" />}
+              <button
+                onClick={toggleVideo}
+                className={videoMuted ? "dock-btn-muted" : "dock-btn-active"}
+              >
+                {videoMuted ? (
+                  <VideoOff size={20} color="#fca5a5" />
+                ) : (
+                  <Video size={20} color="#f8fafc" />
+                )}
               </button>
-              <button onClick={toggleScreenShare} className={isScreenSharing ? "dock-btn-sharing" : "dock-btn-active"}>
-                {isScreenSharing ? <StopCircle size={20} color="#fef08a" /> : <ScreenShare size={20} color="#f8fafc" />}
+              <button
+                onClick={toggleScreenShare}
+                className={
+                  isScreenSharing ? "dock-btn-sharing" : "dock-btn-active"
+                }
+              >
+                {isScreenSharing ? (
+                  <StopCircle size={20} color="#fef08a" />
+                ) : (
+                  <ScreenShare size={20} color="#f8fafc" />
+                )}
               </button>
               <label className="dock-btn-upload">
                 <Paperclip size={20} color="#f8fafc" />
-                <input type="file" onChange={handleFileUpload} style={{ display: "none" }} />
+                <input
+                  type="file"
+                  onChange={handleFileUpload}
+                  style={{ display: "none" }}
+                />
               </label>
-              <button onClick={leaveRoom} className="dock-btn-leave"><PhoneOff size={18} color="#ffffff" /><span className="leave-text">Leave</span></button>
+              <button onClick={leaveRoom} className="dock-btn-leave">
+                <PhoneOff size={18} color="#ffffff" />
+                <span className="leave-text">Leave</span>
+              </button>
             </div>
           </div>
 
           <aside className="side-suite">
             <div className="tab-header">
-              <button onClick={() => setActiveTab("whiteboard")} className={activeTab === "whiteboard" ? "tab-btn-active" : "tab-btn"}><Edit3 size={16} /> Whiteboard</button>
-              <button onClick={() => setActiveTab("files")} className={activeTab === "files" ? "tab-btn-active" : "tab-btn"}><FileText size={16} /> Files ({receivedFiles.length})</button>
+              <button
+                onClick={() => setActiveTab("whiteboard")}
+                className={
+                  activeTab === "whiteboard" ? "tab-btn-active" : "tab-btn"
+                }
+              >
+                <Edit3 size={16} /> Whiteboard
+              </button>
+              <button
+                onClick={() => setActiveTab("files")}
+                className={
+                  activeTab === "files" ? "tab-btn-active" : "tab-btn"
+                }
+              >
+                <FileText size={16} /> Files ({receivedFiles.length})
+              </button>
             </div>
             <div className="tab-body">
               {activeTab === "whiteboard" ? (
-                <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                  <div className="pane-controls"><span className="pane-label">Live Canvas</span><button onClick={() => clearCanvas(true)} className="clear-btn"><Trash2 size={14} /> Clear</button></div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    height: "100%",
+                  }}
+                >
+                  <div className="pane-controls">
+                    <span className="pane-label">Live Canvas</span>
+                    <button onClick={() => clearCanvas(true)} className="clear-btn">
+                      <Trash2 size={14} /> Clear
+                    </button>
+                  </div>
                   <div className="canvas-wrapper">
-                    <canvas ref={canvasRef} width={600} height={500} onMouseDown={(e) => { isDrawing.current = true; const c = getCanvasCoords(e); canvasRef.current.lastX = c.x; canvasRef.current.lastY = c.y; }} onMouseMove={(e) => { if (!isDrawing.current) return; const c = getCanvasCoords(e); drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#38bdf8", true); canvasRef.current.lastX = c.x; canvasRef.current.lastY = c.y; }} onMouseUp={() => isDrawing.current = false} onMouseLeave={() => isDrawing.current = false} className="canvas-element" />
+                    <canvas
+                      ref={canvasRef}
+                      width={600}
+                      height={500}
+                      onMouseDown={(e) => {
+                        isDrawing.current = true;
+                        const c = getCanvasCoords(e);
+                        canvasRef.current.lastX = c.x;
+                        canvasRef.current.lastY = c.y;
+                      }}
+                      onMouseMove={(e) => {
+                        if (!isDrawing.current) return;
+                        const c = getCanvasCoords(e);
+                        drawLineOnCanvas(
+                          canvasRef.current.lastX,
+                          canvasRef.current.lastY,
+                          c.x,
+                          c.y,
+                          "#38bdf8",
+                          true
+                        );
+                        canvasRef.current.lastX = c.x;
+                        canvasRef.current.lastY = c.y;
+                      }}
+                      onMouseUp={() => (isDrawing.current = false)}
+                      onMouseLeave={() => (isDrawing.current = false)}
+                      className="canvas-element"
+                    />
                   </div>
                 </div>
               ) : (
                 <div className="files-pane">
-                  <div className="pane-controls"><span className="pane-label">Shared Files</span></div>
-                  {receivedFiles.length === 0 ? <div className="empty-state">No files yet.</div> : receivedFiles.map((f) => (
-                    <div key={f.id} className="file-card">
-                      <div className="file-card-info"><FileText size={18} color="#38bdf8" /><div><p className="file-name">{f.fileName}</p><span className="file-meta">From {f.sender}</span></div></div>
-                      <a href={f.url} download={f.fileName} className="download-link"><Download size={16} /></a>
-                    </div>
-                  ))}
+                  <div className="pane-controls">
+                    <span className="pane-label">Shared Files</span>
+                  </div>
+                  {receivedFiles.length === 0 ? (
+                    <div className="empty-state">No files yet.</div>
+                  ) : (
+                    receivedFiles.map((f) => (
+                      <div key={f.id} className="file-card">
+                        <div className="file-card-info">
+                          <FileText size={18} color="#38bdf8" />
+                          <div>
+                            <p className="file-name">{f.fileName}</p>
+                            <span className="file-meta">From {f.sender}</span>
+                          </div>
+                        </div>
+                        <a
+                          href={f.url}
+                          download={f.fileName}
+                          className="download-link"
+                        >
+                          <Download size={16} />
+                        </a>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
