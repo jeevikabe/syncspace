@@ -45,7 +45,6 @@ function VideoPlayer({
     audio: false,
   });
 
-  // Attach media stream to HTML video tag
   useEffect(() => {
     const videoObj = videoRef.current;
     if (videoObj && stream) {
@@ -57,7 +56,7 @@ function VideoPlayer({
     }
   }, [stream]);
 
-  // Listen directly to WebRTC track mute / unmute network events
+  // Track native WebRTC mute/unmute events on incoming tracks
   useEffect(() => {
     if (!stream) return;
 
@@ -101,7 +100,6 @@ function VideoPlayer({
   const videoTracks = stream?.getVideoTracks?.() ?? [];
   const audioTracks = stream?.getAudioTracks?.() ?? [];
 
-  // Dual enforcement: State prop OR WebRTC Track Mute status
   const effectiveVideoMuted =
     isVideoMuted ||
     !stream ||
@@ -464,6 +462,7 @@ export default function App() {
       setAudioMuted(nextState);
       socketRef.current?.emit("media-state-change", {
         roomId,
+        socketId: socketRef.current?.id,
         isAudioMuted: nextState,
         isVideoMuted: videoMuted,
       });
@@ -478,6 +477,7 @@ export default function App() {
       setVideoMuted(nextState);
       socketRef.current?.emit("media-state-change", {
         roomId,
+        socketId: socketRef.current?.id,
         isAudioMuted: audioMuted,
         isVideoMuted: nextState,
       });

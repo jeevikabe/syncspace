@@ -57,20 +57,19 @@ io.on("connection", (socket) => {
     io.to(target).emit("ice-candidate", { callerId: socket.id, candidate });
   });
 
-  socket.on("media-state-change", ({ roomId, isAudioMuted, isVideoMuted }) => {
+  socket.on("media-state-change", (data) => {
     if (socketRoomMap[socket.id]) {
-      socketRoomMap[socket.id].isAudioMuted = isAudioMuted;
-      socketRoomMap[socket.id].isVideoMuted = isVideoMuted;
+      socketRoomMap[socket.id].isAudioMuted = data.isAudioMuted;
+      socketRoomMap[socket.id].isVideoMuted = data.isVideoMuted;
     }
 
-    // Broadcast to everyone in the room including the sender so state stays 100% synchronized across all views
-    io.in(roomId).emit("media-state-change", {
+    const payload = {
       socketId: socket.id,
-      userId: socket.id,
-      id: socket.id,
-      isAudioMuted,
-      isVideoMuted,
-    });
+      username: socketRoomMap[socket.id]?.username || socket.username || "Peer",
+      isAudioMuted: data.isAudioMuted,
+      isVideoMuted: data.isVideoMuted,
+    };
+    socket.to(data.roomId).emit("media-state-change", payload);
   });
 
   socket.on("draw-line", ({ roomId, drawData }) => {
