@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import {
   Video, Mic, MicOff, VideoOff, ScreenShare, StopCircle,
   Paperclip, Download, Trash2, User, LogOut, Edit3, FileText,
-  Zap, AlertTriangle, PhoneOff, Eye, EyeOff
+  Zap, AlertTriangle, PhoneOff, Eye, EyeOff, Image as ImageIcon
 } from "lucide-react";
 import "./App.css";
 
@@ -31,7 +31,7 @@ function VideoPlayer({
       videoRef.current.srcObject = stream;
       videoRef.current.play().catch((err) => console.log("Autoplay:", err));
     }
-  }, [stream, isScreen]); 
+  }, [stream, isScreen]);
 
   const effectiveVideoMuted = isVideoMuted === true || !stream || stream.getVideoTracks().length === 0;
 
@@ -92,7 +92,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("whiteboard");
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
-  const [mobileView, setMobileView] = useState("stage");
   const [remoteStreams, setRemoteStreams] = useState({});
 
   const socketRef = useRef();
@@ -104,24 +103,8 @@ export default function App() {
   const isDrawing = useRef(false);
 
   useEffect(() => {
-    const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    setIsMobileDevice(checkMobile);
+    setIsMobileDevice(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
   }, []);
-
-  useEffect(() => {
-    if (!token && document.querySelector('.auth-wrapper')) {
-      history.pushState({ modal: 'auth' }, '', location.href);
-      const handlePopState = () => {
-        const activeElement = document.activeElement;
-        if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
-          activeElement.blur();
-          history.pushState({ modal: 'auth' }, '', location.href);
-        }
-      };
-      window.addEventListener('popstate', handlePopState);
-      return () => window.removeEventListener('popstate', handlePopState);
-    }
-  }, [token]);
 
   useEffect(() => {
     if (!offscreenCanvasRef.current) {
@@ -242,18 +225,10 @@ export default function App() {
 
   const leaveRoom = () => {
     if (socketRef.current && joined) socketRef.current.emit("leave-room", roomId);
-    if (cameraStreamRef.current) {
-      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
-      cameraStreamRef.current = null;
-    }
-    if (currentStreamRef.current && currentStreamRef.current !== cameraStreamRef.current) {
-      currentStreamRef.current.getTracks().forEach((t) => t.stop());
-    }
+    if (cameraStreamRef.current) cameraStreamRef.current.getTracks().forEach((t) => t.stop());
     Object.keys(peerConnections.current).forEach((id) => removePeer(id));
     setLocalStream(null);
-    setRemoteStreams({});
     setJoined(false);
-    setIsScreenSharing(false);
   };
 
   const joinRoom = async () => {
@@ -266,9 +241,6 @@ export default function App() {
       currentStreamRef.current = stream;
       setLocalStream(stream);
       setJoined(true);
-      setAudioMuted(false);
-      setVideoMuted(false);
-      setMobileView("stage");
 
       const socket = socketRef.current;
       socket.emit("join-room", { roomId, username });
@@ -400,7 +372,7 @@ export default function App() {
     const videoTrack = cameraStreamRef.current?.getVideoTracks()[0];
     if (videoTrack) {
       const nextState = !videoMuted;
-      videoTrack.enabled = !nextState; 
+      videoTrack.enabled = !nextState;
       setVideoMuted(nextState);
 
       socketRef.current?.emit("media-state-change", {
@@ -427,8 +399,7 @@ export default function App() {
           if (sender) await sender.replaceTrack(screenTrack);
         });
 
-        const audioTrack = currentStreamRef.current?.getAudioTracks()[0];
-        currentStreamRef.current = audioTrack ? new MediaStream([screenTrack, audioTrack]) : new MediaStream([screenTrack]);
+        currentStreamRef.current = new MediaStream([screenTrack, ...cameraStreamRef.current.getAudioTracks()]);
         setLocalStream(currentStreamRef.current);
         setIsScreenSharing(true);
         screenTrack.onended = stopScreenShare;
@@ -446,9 +417,13 @@ export default function App() {
         if (sender) await sender.replaceTrack(cameraVideoTrack);
       });
     }
-    if (cameraStreamRef.current) {
-      const audioTrack = currentStreamRef.current?.getAudioTracks()[0];
-      currentStreamRef.current = audioTrack ? new MediaStream([cameraVideoTrack, audioTrack]) : cameraStreamRef.current;
+    if (cameraStreamRef.current && currentStreamRef.current) {
+      const audioTrack = currentStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        currentStreamRef.current = new MediaStream([cameraVideoTrack, audioTrack]);
+      } else {
+        currentStreamRef.current = cameraStreamRef.current;
+      }
     }
     setLocalStream(currentStreamRef.current);
     setIsScreenSharing(false);
@@ -493,13 +468,13 @@ export default function App() {
       ctx.beginPath();
       ctx.moveTo(x0, y0);
       ctx.lineTo(x1, y1);
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = color || "#38bdf8";
       ctx.lineWidth = 3;
       ctx.lineCap = "round";
       ctx.stroke();
       ctx.closePath();
     });
-    if (emit) socketRef.current?.emit("draw-line", { roomId, drawData: { x0, y0, x1, y1, color } });
+    if (emit) socketRef.current?.emit("draw-line", { roomId, drawData: { x0, y0, x1, y1, color: color || "#38bdf8" } });
   };
 
   const clearCanvas = (emit = true) => {
@@ -515,7 +490,9 @@ export default function App() {
         <div className="auth-glow"></div>
         <div className="auth-card">
           <div className="auth-header">
-            <div className="logo-icon"><Zap size={24} color="#38bdf8" /></div>
+            <div className="logo-icon">
+              <Zap size={24} color="#38bdf8" />
+            </div>
             <h2 className="auth-title">SyncSpace Studio</h2>
             <p className="auth-subtitle">Encrypted Collaboration Portal</p>
           </div>
@@ -527,10 +504,12 @@ export default function App() {
             </div>
             <div className="input-group">
               <label className="label">Password</label>
-              <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={authInputPass} onChange={(e) => setAuthInputPass(e.target.value)} className="input" required />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn">
-                {showPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
-              </button>
+              <div style={{ position: "relative", width: "100%" }}>
+                <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={authInputPass} onChange={(e) => setAuthInputPass(e.target.value)} className="input" style={{ width: "100%", paddingRight: "40px" }} required />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn">
+                  {showPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
+                </button>
+              </div>
             </div>
             <button type="submit" className="primary-auth-btn">{isRegistering ? "Register" : "Sign In"}</button>
             <div className="toggle-text" onClick={() => setIsRegistering(!isRegistering)}>
@@ -546,36 +525,19 @@ export default function App() {
     <div className="app-wrapper">
       <header className="navbar-container">
         <div className="brand-group">
-          <div className="logo-icon-small"><Zap size={16} color="#38bdf8" /></div>
-          <span className="brand-title">SyncSpace</span>
+          <div className="logo-icon-small"><Zap size={18} color="#38bdf8" /></div>
+          <span className="brand-title">SyncSpace <span className="brand-highlight">Studio</span></span>
         </div>
         {joined && (
           <div className="room-status-badge">
-            <span className="online-dot"></span> <span>{roomId}</span>
+            <span className="online-dot"></span> Room: <strong>{roomId}</strong>
           </div>
         )}
         <div className="user-controls">
-          <div className="user-pill"><User size={13} color="#a1a1aa" /><span className="user-name">{username}</span></div>
-          <button onClick={() => setShowLogoutDialog(true)} className="logout-btn"><LogOut size={15} /></button>
+          <div className="user-pill"><User size={14} color="#a1a1aa" /><span className="user-name">{username}</span></div>
+          <button onClick={() => setShowLogoutDialog(true)} className="logout-btn"><LogOut size={16} /></button>
         </div>
       </header>
-
-      {joined && (
-        <div className="mobile-view-toggle">
-          <button
-            onClick={() => setMobileView("stage")}
-            className={`mobile-tab-btn ${mobileView === "stage" ? "active" : ""}`}
-          >
-            <Video size={16} /> Stage
-          </button>
-          <button
-            onClick={() => setMobileView("workspace")}
-            className={`mobile-tab-btn ${mobileView === "workspace" ? "active" : ""}`}
-          >
-            <Edit3 size={16} /> Workspace
-          </button>
-        </div>
-      )}
 
       {notification && (
         <div className="teams-toast-banner"><AlertTriangle size={16} color="#f59e0b" /><span>{notification}</span></div>
@@ -605,7 +567,7 @@ export default function App() {
           </div>
         </main>
       ) : (
-        <div className={`workspace-layout ${mobileView === "stage" ? "mobile-stage-active" : "mobile-workspace-active"}`}>
+        <div className="workspace-layout show-video">
           <div className="stage-area">
             <div className="video-grid">
               <VideoPlayer stream={localStream} username={`${username} ( You )`} isSelf={true} isScreen={isScreenSharing} isVideoMuted={videoMuted} isAudioMuted={audioMuted} />
@@ -616,37 +578,37 @@ export default function App() {
 
             <div className="floating-dock">
               <button onClick={toggleAudio} className={audioMuted ? "dock-btn-muted" : "dock-btn-active"}>
-                {audioMuted ? <MicOff size={18} color="#fca5a5" /> : <Mic size={18} color="#f8fafc" />}
+                {audioMuted ? <MicOff size={20} color="#fca5a5" /> : <Mic size={20} color="#f8fafc" />}
               </button>
               <button onClick={toggleVideo} className={videoMuted ? "dock-btn-muted" : "dock-btn-active"}>
-                {videoMuted ? <VideoOff size={18} color="#fca5a5" /> : <Video size={18} color="#f8fafc" />}
+                {videoMuted ? <VideoOff size={20} color="#fca5a5" /> : <Video size={20} color="#f8fafc" />}
               </button>
               <button onClick={toggleScreenShare} className={isScreenSharing ? "dock-btn-sharing" : "dock-btn-active"}>
-                {isScreenSharing ? <StopCircle size={18} color="#fef08a" /> : <ScreenShare size={18} color="#f8fafc" />}
+                {isScreenSharing ? <StopCircle size={20} color="#fef08a" /> : <ScreenShare size={20} color="#f8fafc" />}
               </button>
               <label className="dock-btn-upload">
-                <Paperclip size={18} color="#f8fafc" />
+                <Paperclip size={20} color="#f8fafc" />
                 <input type="file" onChange={handleFileUpload} style={{ display: "none" }} />
               </label>
               <button onClick={leaveRoom} className="dock-btn-leave">
-                <PhoneOff size={16} color="#ffffff" /><span className="leave-text">Leave</span>
+                <PhoneOff size={18} color="#ffffff" /><span className="leave-text">Leave</span>
               </button>
             </div>
           </div>
 
           <aside className="side-suite">
             <div className="tab-header">
-              <button onClick={() => setActiveTab("whiteboard")} className={activeTab === "whiteboard" ? "tab-btn-active" : "tab-btn"}><Edit3 size={15} /> Whiteboard</button>
-              <button onClick={() => setActiveTab("files")} className={activeTab === "files" ? "tab-btn-active" : "tab-btn"}><FileText size={15} /> Files ({receivedFiles.length})</button>
+              <button onClick={() => setActiveTab("whiteboard")} className={activeTab === "whiteboard" ? "tab-btn-active" : "tab-btn"}><Edit3 size={16} /> Whiteboard</button>
+              <button onClick={() => setActiveTab("files")} className={activeTab === "files" ? "tab-btn-active" : "tab-btn"}><FileText size={16} /> Files ({receivedFiles.length})</button>
             </div>
             <div className="tab-body">
-              {/* Whiteboard Tab (Hidden via CSS instead of unmounted to preserve content) */}
+              {/* Whiteboard Tab - Dark Matte Surface */}
               <div style={{ display: activeTab === "whiteboard" ? "flex" : "none", flexDirection: "column", height: "100%" }}>
                 <div className="pane-controls">
-                  <span className="pane-label">Live Canvas</span>
-                  <button onClick={() => clearCanvas(true)} className="clear-btn"><Trash2 size={13} /> Clear</button>
+                  <span className="pane-label">Interactive Canvas</span>
+                  <button onClick={() => clearCanvas(true)} className="clear-btn"><Trash2 size={14} /> Clear</button>
                 </div>
-                <div className="canvas-wrapper" style={{ backgroundColor: "#ffffff" }}>
+                <div className="canvas-wrapper" style={{ backgroundColor: "#0f172a", borderRadius: "8px", border: "1px solid #1e293b", overflow: "hidden" }}>
                   <canvas
                     ref={canvasRef}
                     width={600}
@@ -660,7 +622,7 @@ export default function App() {
                     onMouseMove={(e) => {
                       if (!isDrawing.current) return;
                       const c = getCanvasCoords(e);
-                      drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#0284c7", true);
+                      drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#38bdf8", true);
                       canvasRef.current.lastX = c.x;
                       canvasRef.current.lastY = c.y;
                     }}
@@ -675,41 +637,84 @@ export default function App() {
                     onTouchMove={(e) => {
                       if (!isDrawing.current) return;
                       const c = getCanvasCoords(e);
-                      drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#0284c7", true);
+                      drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#38bdf8", true);
                       canvasRef.current.lastX = c.x;
                       canvasRef.current.lastY = c.y;
                     }}
                     onTouchEnd={() => (isDrawing.current = false)}
                     className="canvas-element"
-                    style={{ backgroundColor: "#ffffff", display: "block", width: "100%", height: "100%", cursor: "crosshair" }}
+                    style={{ backgroundColor: "#0f172a", display: "block", width: "100%", height: "100%", cursor: "crosshair" }}
                   />
                 </div>
               </div>
 
-              {/* Files Tab */}
-              <div style={{ display: activeTab === "files" ? "flex" : "none", flexDirection: "column", height: "100%" }} className="files-pane">
-                <div className="pane-controls"><span className="pane-label">Shared Files</span></div>
+              {/* Files Tab - Teams Minimalist Styling */}
+              <div style={{ display: activeTab === "files" ? "flex" : "none", flexDirection: "column", height: "100%", gap: "12px" }} className="files-pane">
+                <div className="pane-controls"><span className="pane-label">Shared Assets</span></div>
                 {receivedFiles.length === 0 ? (
-                  <div className="empty-state">No files yet.</div>
+                  <div className="empty-state" style={{ textAlign: "center", padding: "32px 16px", color: "#64748b", fontSize: "0.875rem" }}>
+                    No shared files in this session yet.
+                  </div>
                 ) : (
-                  receivedFiles.map((f) => (
-                    <div key={f.id} className="file-card">
-                      <div className="file-card-info">
-                        {f.isImage ? (
-                          <img src={f.url} alt={f.fileName} className="file-thumbnail" style={{ width: "36px", height: "36px", objectFit: "cover", borderRadius: "6px" }} />
-                        ) : (
-                          <FileText size={20} color="#38bdf8" />
-                        )}
-                        <div>
-                          <p className="file-name">{f.fileName}</p>
-                          <span className="file-meta">From {f.sender}</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", overflowY: "auto", paddingRight: "4px" }}>
+                    {receivedFiles.map((f) => (
+                      <div
+                        key={f.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          backgroundColor: "#1e293b",
+                          border: "1px solid #334155",
+                          borderRadius: "8px",
+                          padding: "12px 14px",
+                          transition: "border-color 0.2s ease, background-color 0.2s ease",
+                        }}
+                        className="teams-file-card"
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", overflow: "hidden" }}>
+                          {f.isImage ? (
+                            <div style={{ width: "42px", height: "42px", borderRadius: "6px", overflow: "hidden", flexShrink: 0, border: "1px solid #475569" }}>
+                              <img src={f.url} alt={f.fileName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            </div>
+                          ) : (
+                            <div style={{ width: "42px", height: "42px", borderRadius: "6px", backgroundColor: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "1px solid #334155" }}>
+                              <FileText size={20} color="#38bdf8" />
+                            </div>
+                          )}
+                          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                            <span style={{ fontSize: "0.875rem", fontWeight: "600", color: "#f8fafc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "170px" }}>
+                              {f.fileName}
+                            </span>
+                            <span style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "2px" }}>
+                              Shared by <strong style={{ color: "#cbd5e1", fontWeight: "500" }}>{f.sender}</strong>
+                            </span>
+                          </div>
                         </div>
+                        <a
+                          href={f.url}
+                          download={f.fileName}
+                          title={`Download ${f.fileName}`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "34px",
+                            height: "34px",
+                            borderRadius: "6px",
+                            backgroundColor: "#334155",
+                            color: "#f8fafc",
+                            textDecoration: "none",
+                            transition: "background-color 0.2s",
+                            flexShrink: 0,
+                          }}
+                          className="teams-download-btn"
+                        >
+                          <Download size={16} />
+                        </a>
                       </div>
-                      <a href={f.url} download={f.fileName} className="download-link" title="Download">
-                        <Download size={16} />
-                      </a>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
