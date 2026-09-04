@@ -867,16 +867,29 @@ body {
   box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
 }
 
-/* Mobile Responsive Overrides */
+/* Mobile Responsive Overrides: Top Navbar -> Switcher -> Stage/Workspace */
 @media (max-width: 900px) {
+  .app-wrapper {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .navbar-container {
+    padding: 0 12px;
+    height: 52px;
+  }
+
   .mobile-view-toggle {
-    display: flex;
+    display: flex; /* Displayed right below the top navbar */
   }
 
   .workspace-layout {
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
 
+  /* When Stage (Video) is active on mobile */
   .workspace-layout.mobile-stage-active .side-suite {
     display: none !important;
   }
@@ -885,8 +898,10 @@ body {
     display: flex !important;
     flex: 1 !important;
     min-height: 0 !important;
+    width: 100% !important;
   }
 
+  /* When Workspace (Whiteboard/Files) is active on mobile */
   .workspace-layout.mobile-workspace-active .stage-area {
     display: none !important;
   }
@@ -898,5 +913,17 @@ body {
     height: 100% !important;
     border-left: none !important;
     min-height: 0 !important;
+  }
+
+  .video-grid {
+    padding: 12px;
+    gap: 12px;
+    padding-bottom: 90px;
+  }
+
+  .floating-dock {
+    bottom: 12px;
+    padding: 8px 12px;
+    gap: 8px;
   }
 }
