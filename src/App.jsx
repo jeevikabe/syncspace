@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import {
   Video, Mic, MicOff, VideoOff, ScreenShare, StopCircle,
   Paperclip, Download, Trash2, User, LogOut, Edit3, FileText,
-  Zap, AlertTriangle, PhoneOff, Eye, EyeOff, LayoutGrid
+  Zap, AlertTriangle, PhoneOff, Eye, EyeOff, LayoutGrid, LogIn, UserPlus
 } from "lucide-react";
 import "./App.css";
 
@@ -491,29 +491,59 @@ export default function App() {
         <div className="auth-card">
           <div className="auth-header">
             <div className="logo-icon">
-              <Zap size={24} color="#38bdf8" />
+              <Zap size={28} color="#38bdf8" />
             </div>
             <h2 className="auth-title">SyncSpace Studio</h2>
             <p className="auth-subtitle">Encrypted Collaboration Portal</p>
           </div>
-          {authError && <div className="error-box">{authError}</div>}
+
+          {authError && <div className="error-box"><AlertTriangle size={16} /><span>{authError}</span></div>}
+
           <form onSubmit={handleAuth} className="form-stack">
             <div className="input-group">
               <label className="label">Username</label>
-              <input type="text" placeholder="Username" value={authInputUser} onChange={(e) => setAuthInputUser(e.target.value)} className="input" required />
+
+              <input
+                type="text"
+                placeholder="Enter username"
+                value={authInputUser}
+                onChange={(e) => setAuthInputUser(e.target.value)}
+                className="input"
+                required
+              />
             </div>
+
             <div className="input-group">
               <label className="label">Password</label>
               <div className="password-field-wrapper">
-                <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={authInputPass} onChange={(e) => setAuthInputPass(e.target.value)} className="input password-input" required />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={authInputPass}
+                  onChange={(e) => setAuthInputPass(e.target.value)}
+                  className="input password-input"
+                  required
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn" aria-label="Toggle password visibility">
                   {showPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
                 </button>
               </div>
             </div>
-            <button type="submit" className="primary-auth-btn">{isRegistering ? "Register" : "Sign In"}</button>
-            <div className="toggle-text" onClick={() => setIsRegistering(!isRegistering)}>
-              {isRegistering ? "Already have an account? Sign In" : "Need account? Register"}
+
+            <button type="submit" className="primary-auth-btn">
+              {isRegistering ? (
+                <>
+                  <UserPlus size={18} /> Register Account
+                </>
+              ) : (
+                <>
+                  <LogIn size={18} /> Sign In
+                </>
+              )}
+            </button>
+
+            <div className="toggle-text" onClick={() => { setIsRegistering(!isRegistering); setAuthError(""); }}>
+              {isRegistering ? "Already have an account? Sign In" : "Need an account? Register"}
             </div>
           </form>
         </div>
@@ -535,7 +565,7 @@ export default function App() {
         )}
         <div className="user-controls">
           <div className="user-pill"><User size={14} color="#a1a1aa" /><span className="user-name">{username}</span></div>
-          <button onClick={() => setShowLogoutDialog(true)} className="logout-btn"><LogOut size={16} /></button>
+          <button onClick={() => setShowLogoutDialog(true)} className="logout-btn" title="Sign Out"><LogOut size={16} /></button>
         </div>
       </header>
 
@@ -558,7 +588,7 @@ export default function App() {
         <div className="dialog-overlay">
           <div className="dialog-card">
             <h3 className="dialog-title">Confirm Logout</h3>
-            <p className="dialog-text">Are you sure you want to sign out?</p>
+            <p className="dialog-text">Are you sure you want to sign out of SyncSpace?</p>
             <div className="dialog-actions">
               <button onClick={() => setShowLogoutDialog(false)} className="cancel-btn">Cancel</button>
               <button onClick={confirmLogout} className="confirm-logout-btn">Logout</button>
@@ -571,8 +601,15 @@ export default function App() {
         <main className="hero-container">
           <div className="hero-card">
             <h1 className="hero-title">Join Video Session</h1>
+            <p className="hero-subtitle">Enter a session room ID below to collaborate in real-time.</p>
             <div className="join-input-stack">
-              <input type="text" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="hero-input" />
+              <input
+                type="text"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                placeholder="Enter Room ID"
+                className="hero-input"
+              />
               <button onClick={joinRoom} className="hero-join-btn">Launch Session</button>
             </div>
           </div>
@@ -588,20 +625,20 @@ export default function App() {
             </div>
 
             <div className="floating-dock">
-              <button onClick={toggleAudio} className={audioMuted ? "dock-btn-muted" : "dock-btn-active"}>
+              <button onClick={toggleAudio} className={audioMuted ? "dock-btn-muted" : "dock-btn-active"} title={audioMuted ? "Unmute Mic" : "Mute Mic"}>
                 {audioMuted ? <MicOff size={20} color="#fca5a5" /> : <Mic size={20} color="#f8fafc" />}
               </button>
-              <button onClick={toggleVideo} className={videoMuted ? "dock-btn-muted" : "dock-btn-active"}>
+              <button onClick={toggleVideo} className={videoMuted ? "dock-btn-muted" : "dock-btn-active"} title={videoMuted ? "Turn On Camera" : "Turn Off Camera"}>
                 {videoMuted ? <VideoOff size={20} color="#fca5a5" /> : <Video size={20} color="#f8fafc" />}
               </button>
-              <button onClick={toggleScreenShare} className={isScreenSharing ? "dock-btn-sharing" : "dock-btn-active"}>
+              <button onClick={toggleScreenShare} className={isScreenSharing ? "dock-btn-sharing" : "dock-btn-active"} title={isScreenSharing ? "Stop Sharing" : "Share Screen"}>
                 {isScreenSharing ? <StopCircle size={20} color="#fef08a" /> : <ScreenShare size={20} color="#f8fafc" />}
               </button>
-              <label className="dock-btn-upload">
+              <label className="dock-btn-upload" title="Share File">
                 <Paperclip size={20} color="#f8fafc" />
                 <input type="file" onChange={handleFileUpload} style={{ display: "none" }} />
               </label>
-              <button onClick={leaveRoom} className="dock-btn-leave">
+              <button onClick={leaveRoom} className="dock-btn-leave" title="Leave Session">
                 <PhoneOff size={18} color="#ffffff" /><span className="leave-text">Leave</span>
               </button>
             </div>
