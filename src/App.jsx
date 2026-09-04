@@ -92,9 +92,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("whiteboard");
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
-  // Mobile layout switcher state: "stage" (Video Grid) or "workspace" (Whiteboard/Files)
   const [mobileView, setMobileView] = useState("stage");
-
   const [remoteStreams, setRemoteStreams] = useState({});
 
   const socketRef = useRef();
@@ -110,7 +108,6 @@ export default function App() {
     setIsMobileDevice(checkMobile);
   }, []);
 
-  // Intercept hardware/virtual back button on mobile when auth inputs are focused
   useEffect(() => {
     if (!token && document.querySelector('.auth-wrapper')) {
       history.pushState({ modal: 'auth' }, '', location.href);
@@ -518,9 +515,7 @@ export default function App() {
         <div className="auth-glow"></div>
         <div className="auth-card">
           <div className="auth-header">
-            <div className="logo-icon">
-              <Zap size={24} color="#38bdf8" />
-            </div>
+            <div className="logo-icon"><Zap size={24} color="#38bdf8" /></div>
             <h2 className="auth-title">SyncSpace Studio</h2>
             <p className="auth-subtitle">Encrypted Collaboration Portal</p>
           </div>
@@ -551,34 +546,33 @@ export default function App() {
     <div className="app-wrapper">
       <header className="navbar-container">
         <div className="brand-group">
-          <div className="logo-icon-small"><Zap size={18} color="#38bdf8" /></div>
-          <span className="brand-title">SyncSpace <span className="brand-highlight">Studio</span></span>
+          <div className="logo-icon-small"><Zap size={16} color="#38bdf8" /></div>
+          <span className="brand-title">SyncSpace</span>
         </div>
         {joined && (
           <div className="room-status-badge">
-            <span className="online-dot"></span> Room: <strong>{roomId}</strong>
+            <span className="online-dot"></span> <span>{roomId}</span>
           </div>
         )}
         <div className="user-controls">
-          <div className="user-pill"><User size={14} color="#a1a1aa" /><span className="user-name">{username}</span></div>
-          <button onClick={() => setShowLogoutDialog(true)} className="logout-btn"><LogOut size={16} /></button>
+          <div className="user-pill"><User size={13} color="#a1a1aa" /><span className="user-name">{username}</span></div>
+          <button onClick={() => setShowLogoutDialog(true)} className="logout-btn"><LogOut size={15} /></button>
         </div>
       </header>
 
-      {/* Mobile Switcher Navbar: Sits right below top navigation when joined */}
       {joined && (
         <div className="mobile-view-toggle">
           <button
             onClick={() => setMobileView("stage")}
             className={`mobile-tab-btn ${mobileView === "stage" ? "active" : ""}`}
           >
-            <Video size={16} /> Stage & Video
+            <Video size={16} /> Stage
           </button>
           <button
             onClick={() => setMobileView("workspace")}
             className={`mobile-tab-btn ${mobileView === "workspace" ? "active" : ""}`}
           >
-            <Edit3 size={16} /> Workspace ({activeTab})
+            <Edit3 size={16} /> Workspace
           </button>
         </div>
       )}
@@ -622,35 +616,35 @@ export default function App() {
 
             <div className="floating-dock">
               <button onClick={toggleAudio} className={audioMuted ? "dock-btn-muted" : "dock-btn-active"}>
-                {audioMuted ? <MicOff size={20} color="#fca5a5" /> : <Mic size={20} color="#f8fafc" />}
+                {audioMuted ? <MicOff size={18} color="#fca5a5" /> : <Mic size={18} color="#f8fafc" />}
               </button>
               <button onClick={toggleVideo} className={videoMuted ? "dock-btn-muted" : "dock-btn-active"}>
-                {videoMuted ? <VideoOff size={20} color="#fca5a5" /> : <Video size={20} color="#f8fafc" />}
+                {videoMuted ? <VideoOff size={18} color="#fca5a5" /> : <Video size={18} color="#f8fafc" />}
               </button>
               <button onClick={toggleScreenShare} className={isScreenSharing ? "dock-btn-sharing" : "dock-btn-active"}>
-                {isScreenSharing ? <StopCircle size={20} color="#fef08a" /> : <ScreenShare size={20} color="#f8fafc" />}
+                {isScreenSharing ? <StopCircle size={18} color="#fef08a" /> : <ScreenShare size={18} color="#f8fafc" />}
               </button>
               <label className="dock-btn-upload">
-                <Paperclip size={20} color="#f8fafc" />
+                <Paperclip size={18} color="#f8fafc" />
                 <input type="file" onChange={handleFileUpload} style={{ display: "none" }} />
               </label>
               <button onClick={leaveRoom} className="dock-btn-leave">
-                <PhoneOff size={18} color="#ffffff" /><span className="leave-text">Leave</span>
+                <PhoneOff size={16} color="#ffffff" /><span className="leave-text">Leave</span>
               </button>
             </div>
           </div>
 
           <aside className="side-suite">
             <div className="tab-header">
-              <button onClick={() => setActiveTab("whiteboard")} className={activeTab === "whiteboard" ? "tab-btn-active" : "tab-btn"}><Edit3 size={16} /> Whiteboard</button>
-              <button onClick={() => setActiveTab("files")} className={activeTab === "files" ? "tab-btn-active" : "tab-btn"}><FileText size={16} /> Files ({receivedFiles.length})</button>
+              <button onClick={() => setActiveTab("whiteboard")} className={activeTab === "whiteboard" ? "tab-btn-active" : "tab-btn"}><Edit3 size={15} /> Whiteboard</button>
+              <button onClick={() => setActiveTab("files")} className={activeTab === "files" ? "tab-btn-active" : "tab-btn"}><FileText size={15} /> Files ({receivedFiles.length})</button>
             </div>
             <div className="tab-body">
               {activeTab === "whiteboard" ? (
                 <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
                   <div className="pane-controls">
                     <span className="pane-label">Live Canvas</span>
-                    <button onClick={() => clearCanvas(true)} className="clear-btn"><Trash2 size={14} /> Clear</button>
+                    <button onClick={() => clearCanvas(true)} className="clear-btn"><Trash2 size={13} /> Clear</button>
                   </div>
                   <div className="canvas-wrapper">
                     <canvas
