@@ -111,6 +111,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  position: relative;
 }
 
 .label {
@@ -128,6 +129,7 @@ body {
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
 }
 
 .input:focus {
@@ -138,8 +140,7 @@ body {
 .eye-btn {
   position: absolute;
   right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 38px;
   background: none;
   border: none;
   cursor: pointer;
@@ -867,7 +868,7 @@ body {
   box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
 }
 
-/* Mobile Responsive Overrides: Top Navbar -> Switcher -> Stage/Workspace */
+/* Mobile Responsive Layout & Keyboard Back-Button Trap */
 @media (max-width: 900px) {
   .app-wrapper {
     height: 100vh;
@@ -880,7 +881,7 @@ body {
   }
 
   .mobile-view-toggle {
-    display: flex; /* Displayed right below the top navbar */
+    display: flex; /* Displayed right below top navbar */
   }
 
   .workspace-layout {
@@ -889,7 +890,7 @@ body {
     min-height: 0;
   }
 
-  /* When Stage (Video) is active on mobile */
+  /* Stage View Active */
   .workspace-layout.mobile-stage-active .side-suite {
     display: none !important;
   }
@@ -901,7 +902,7 @@ body {
     width: 100% !important;
   }
 
-  /* When Workspace (Whiteboard/Files) is active on mobile */
+  /* Workspace View Active */
   .workspace-layout.mobile-workspace-active .stage-area {
     display: none !important;
   }

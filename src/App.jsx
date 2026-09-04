@@ -92,6 +92,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("whiteboard");
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
+  // Mobile layout switcher state: "stage" (Video Grid) or "workspace" (Whiteboard/Files)
+  const [mobileView, setMobileView] = useState("stage");
+
   const [remoteStreams, setRemoteStreams] = useState({});
 
   const socketRef = useRef();
@@ -103,8 +106,25 @@ export default function App() {
   const isDrawing = useRef(false);
 
   useEffect(() => {
-    setIsMobileDevice(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    setIsMobileDevice(checkMobile);
   }, []);
+
+  // Intercept hardware/virtual back button on mobile when auth inputs are focused
+  useEffect(() => {
+    if (!token && document.querySelector('.auth-wrapper')) {
+      history.pushState({ modal: 'auth' }, '', location.href);
+      const handlePopState = () => {
+        const activeElement = document.activeElement;
+        if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+          activeElement.blur();
+          history.pushState({ modal: 'auth' }, '', location.href);
+        }
+      };
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+  }, [token]);
 
   useEffect(() => {
     if (!offscreenCanvasRef.current) {
@@ -251,6 +271,7 @@ export default function App() {
       setJoined(true);
       setAudioMuted(false);
       setVideoMuted(false);
+      setMobileView("stage");
 
       const socket = socketRef.current;
       socket.emit("join-room", { roomId, username });
@@ -511,12 +532,10 @@ export default function App() {
             </div>
             <div className="input-group">
               <label className="label">Password</label>
-              <div style={{ position: "relative", width: "100%" }}>
-                <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={authInputPass} onChange={(e) => setAuthInputPass(e.target.value)} className="input" style={{ width: "100%", paddingRight: "40px" }} required />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn">
-                  {showPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
-                </button>
-              </div>
+              <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={authInputPass} onChange={(e) => setAuthInputPass(e.target.value)} className="input" required />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn">
+                {showPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
+              </button>
             </div>
             <button type="submit" className="primary-auth-btn">{isRegistering ? "Register" : "Sign In"}</button>
             <div className="toggle-text" onClick={() => setIsRegistering(!isRegistering)}>
@@ -546,6 +565,24 @@ export default function App() {
         </div>
       </header>
 
+      {/* Mobile Switcher Navbar: Sits right below top navigation when joined */}
+      {joined && (
+        <div className="mobile-view-toggle">
+          <button
+            onClick={() => setMobileView("stage")}
+            className={`mobile-tab-btn ${mobileView === "stage" ? "active" : ""}`}
+          >
+            <Video size={16} /> Stage & Video
+          </button>
+          <button
+            onClick={() => setMobileView("workspace")}
+            className={`mobile-tab-btn ${mobileView === "workspace" ? "active" : ""}`}
+          >
+            <Edit3 size={16} /> Workspace ({activeTab})
+          </button>
+        </div>
+      )}
+
       {notification && (
         <div className="teams-toast-banner"><AlertTriangle size={16} color="#f59e0b" /><span>{notification}</span></div>
       )}
@@ -574,7 +611,7 @@ export default function App() {
           </div>
         </main>
       ) : (
-        <div className="workspace-layout show-video">
+        <div className={`workspace-layout ${mobileView === "stage" ? "mobile-stage-active" : "mobile-workspace-active"}`}>
           <div className="stage-area">
             <div className="video-grid">
               <VideoPlayer stream={localStream} username={`${username} ( You )`} isSelf={true} isScreen={isScreenSharing} isVideoMuted={videoMuted} isAudioMuted={audioMuted} />
@@ -635,6 +672,20 @@ export default function App() {
                       }}
                       onMouseUp={() => (isDrawing.current = false)}
                       onMouseLeave={() => (isDrawing.current = false)}
+                      onTouchStart={(e) => {
+                        isDrawing.current = true;
+                        const c = getCanvasCoords(e);
+                        canvasRef.current.lastX = c.x;
+                        canvasRef.current.lastY = c.y;
+                      }}
+                      onTouchMove={(e) => {
+                        if (!isDrawing.current) return;
+                        const c = getCanvasCoords(e);
+                        drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#38bdf8", true);
+                        canvasRef.current.lastX = c.x;
+                        canvasRef.current.lastY = c.y;
+                      }}
+                      onTouchEnd={() => (isDrawing.current = false)}
                       className="canvas-element"
                     />
                   </div>
