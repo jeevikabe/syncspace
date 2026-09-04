@@ -640,68 +640,78 @@ export default function App() {
               <button onClick={() => setActiveTab("files")} className={activeTab === "files" ? "tab-btn-active" : "tab-btn"}><FileText size={15} /> Files ({receivedFiles.length})</button>
             </div>
             <div className="tab-body">
-              {activeTab === "whiteboard" ? (
-                <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                  <div className="pane-controls">
-                    <span className="pane-label">Live Canvas</span>
-                    <button onClick={() => clearCanvas(true)} className="clear-btn"><Trash2 size={13} /> Clear</button>
-                  </div>
-                  <div className="canvas-wrapper">
-                    <canvas
-                      ref={canvasRef}
-                      width={600}
-                      height={500}
-                      onMouseDown={(e) => {
-                        isDrawing.current = true;
-                        const c = getCanvasCoords(e);
-                        canvasRef.current.lastX = c.x;
-                        canvasRef.current.lastY = c.y;
-                      }}
-                      onMouseMove={(e) => {
-                        if (!isDrawing.current) return;
-                        const c = getCanvasCoords(e);
-                        drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#38bdf8", true);
-                        canvasRef.current.lastX = c.x;
-                        canvasRef.current.lastY = c.y;
-                      }}
-                      onMouseUp={() => (isDrawing.current = false)}
-                      onMouseLeave={() => (isDrawing.current = false)}
-                      onTouchStart={(e) => {
-                        isDrawing.current = true;
-                        const c = getCanvasCoords(e);
-                        canvasRef.current.lastX = c.x;
-                        canvasRef.current.lastY = c.y;
-                      }}
-                      onTouchMove={(e) => {
-                        if (!isDrawing.current) return;
-                        const c = getCanvasCoords(e);
-                        drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#38bdf8", true);
-                        canvasRef.current.lastX = c.x;
-                        canvasRef.current.lastY = c.y;
-                      }}
-                      onTouchEnd={() => (isDrawing.current = false)}
-                      className="canvas-element"
-                    />
-                  </div>
+              {/* Whiteboard Tab (Hidden via CSS instead of unmounted to preserve content) */}
+              <div style={{ display: activeTab === "whiteboard" ? "flex" : "none", flexDirection: "column", height: "100%" }}>
+                <div className="pane-controls">
+                  <span className="pane-label">Live Canvas</span>
+                  <button onClick={() => clearCanvas(true)} className="clear-btn"><Trash2 size={13} /> Clear</button>
                 </div>
-              ) : (
-                <div className="files-pane">
-                  <div className="pane-controls"><span className="pane-label">Shared Files</span></div>
-                  {receivedFiles.length === 0 ? (
-                    <div className="empty-state">No files yet.</div>
-                  ) : (
-                    receivedFiles.map((f) => (
-                      <div key={f.id} className="file-card">
-                        <div className="file-card-info">
-                          <FileText size={18} color="#38bdf8" />
-                          <div><p className="file-name">{f.fileName}</p><span className="file-meta">From {f.sender}</span></div>
+                <div className="canvas-wrapper" style={{ backgroundColor: "#ffffff" }}>
+                  <canvas
+                    ref={canvasRef}
+                    width={600}
+                    height={500}
+                    onMouseDown={(e) => {
+                      isDrawing.current = true;
+                      const c = getCanvasCoords(e);
+                      canvasRef.current.lastX = c.x;
+                      canvasRef.current.lastY = c.y;
+                    }}
+                    onMouseMove={(e) => {
+                      if (!isDrawing.current) return;
+                      const c = getCanvasCoords(e);
+                      drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#0284c7", true);
+                      canvasRef.current.lastX = c.x;
+                      canvasRef.current.lastY = c.y;
+                    }}
+                    onMouseUp={() => (isDrawing.current = false)}
+                    onMouseLeave={() => (isDrawing.current = false)}
+                    onTouchStart={(e) => {
+                      isDrawing.current = true;
+                      const c = getCanvasCoords(e);
+                      canvasRef.current.lastX = c.x;
+                      canvasRef.current.lastY = c.y;
+                    }}
+                    onTouchMove={(e) => {
+                      if (!isDrawing.current) return;
+                      const c = getCanvasCoords(e);
+                      drawLineOnCanvas(canvasRef.current.lastX, canvasRef.current.lastY, c.x, c.y, "#0284c7", true);
+                      canvasRef.current.lastX = c.x;
+                      canvasRef.current.lastY = c.y;
+                    }}
+                    onTouchEnd={() => (isDrawing.current = false)}
+                    className="canvas-element"
+                    style={{ backgroundColor: "#ffffff", display: "block", width: "100%", height: "100%", cursor: "crosshair" }}
+                  />
+                </div>
+              </div>
+
+              {/* Files Tab */}
+              <div style={{ display: activeTab === "files" ? "flex" : "none", flexDirection: "column", height: "100%" }} className="files-pane">
+                <div className="pane-controls"><span className="pane-label">Shared Files</span></div>
+                {receivedFiles.length === 0 ? (
+                  <div className="empty-state">No files yet.</div>
+                ) : (
+                  receivedFiles.map((f) => (
+                    <div key={f.id} className="file-card">
+                      <div className="file-card-info">
+                        {f.isImage ? (
+                          <img src={f.url} alt={f.fileName} className="file-thumbnail" style={{ width: "36px", height: "36px", objectFit: "cover", borderRadius: "6px" }} />
+                        ) : (
+                          <FileText size={20} color="#38bdf8" />
+                        )}
+                        <div>
+                          <p className="file-name">{f.fileName}</p>
+                          <span className="file-meta">From {f.sender}</span>
                         </div>
-                        <a href={f.url} download={f.fileName} className="download-link"><Download size={16} /></a>
                       </div>
-                    ))
-                  )}
-                </div>
-              )}
+                      <a href={f.url} download={f.fileName} className="download-link" title="Download">
+                        <Download size={16} />
+                      </a>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </aside>
         </div>
