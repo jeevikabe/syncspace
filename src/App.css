@@ -122,7 +122,6 @@ body {
   color: #ef4444;
 }
 
-/* Toast Banners */
 .teams-toast-banner {
   display: flex;
   align-items: center;
@@ -135,7 +134,7 @@ body {
   justify-content: center;
 }
 
-/* Mobile View Switcher Tabs */
+/* Mobile Tab Switcher Toolbar */
 .mobile-view-toggle {
   display: none;
 }
@@ -435,14 +434,8 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  transition: background-color 0.2s ease;
 }
 
-.clear-btn:hover {
-  background: rgba(239, 68, 68, 0.25);
-}
-
-/* Canvas Styling - Dark Matte Canvas */
 .canvas-wrapper {
   flex: 1;
   display: flex;
@@ -463,7 +456,6 @@ body {
   cursor: crosshair;
 }
 
-/* Shared Files - Microsoft Teams Style Cards */
 .files-pane {
   display: flex;
   flex-direction: column;
@@ -504,16 +496,20 @@ body {
   color: #ffffff;
 }
 
-/* Mobile Layout Fixes */
+/* Responsive Mobile Layout Rule Fixes */
 @media (max-width: 768px) {
   .workspace-layout {
-    display: block;
-    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    height: calc(100vh - 90px);
+    height: calc(100dvh - 90px);
+    overflow: hidden;
   }
 
   .stage-area, .side-suite {
-    position: absolute;
-    inset: 0;
+    width: 100%;
+    height: 100%;
     display: none;
   }
 
@@ -526,264 +522,43 @@ body {
   }
 
   .video-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding-bottom: 90px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+    padding: 8px;
+    align-content: start;
   }
 
   .video-card-element {
     width: 100%;
-    height: 180px;
-    flex-shrink: 0;
-    aspect-ratio: unset;
+    height: 160px;
+    min-height: unset;
   }
 }
 
-/* Auth Pages & Dialogs */
-.auth-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 16px;
-  background: var(--bg-main);
+/* Form Password Field Vertical Alignment Fix */
+.password-field-wrapper {
   position: relative;
-}
-
-.auth-glow {
-  position: absolute;
-  width: 280px;
-  height: 280px;
-  background: var(--accent-blue);
-  filter: blur(140px);
-  opacity: 0.15;
-  pointer-events: none;
-}
-
-.auth-card {
   width: 100%;
-  max-width: 380px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  padding: 24px;
-  border-radius: 12px;
-  z-index: 1;
-}
-
-.auth-header {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-.logo-icon {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
 }
 
-.auth-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.auth-subtitle {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.error-box {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  margin-bottom: 12px;
-  text-align: center;
-}
-
-.form-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  position: relative;
-}
-
-.label {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.input {
-  background: var(--bg-main);
-  border: 1px solid var(--border-color);
-  padding: 10px;
-  border-radius: 6px;
-  color: var(--text-main);
-  font-size: 14px;
-  outline: none;
-}
-
-.input:focus {
-  border-color: var(--accent-blue);
+.password-input {
+  width: 100%;
+  padding-right: 40px !important;
 }
 
 .eye-btn {
   position: absolute;
   right: 10px;
-  top: 28px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   cursor: pointer;
-}
-
-.primary-auth-btn {
-  background: var(--accent-blue);
-  color: #0f172a;
-  border: none;
-  padding: 10px;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  margin-top: 6px;
-  transition: opacity 0.2s ease;
-}
-
-.primary-auth-btn:hover {
-  opacity: 0.9;
-}
-
-.toggle-text {
-  text-align: center;
-  font-size: 12px;
-  color: var(--accent-blue);
-  cursor: pointer;
-  margin-top: 4px;
-}
-
-.hero-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  padding: 16px;
-}
-
-.hero-card {
-  width: 100%;
-  max-width: 380px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  padding: 24px;
-  border-radius: 12px;
-  text-align: center;
-}
-
-.hero-title {
-  font-size: 18px;
-  margin-bottom: 16px;
-}
-
-.join-input-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.hero-input {
-  background: var(--bg-main);
-  border: 1px solid var(--border-color);
-  padding: 10px;
-  border-radius: 6px;
-  color: var(--text-main);
-  text-align: center;
-  font-size: 16px;
-  outline: none;
-}
-
-.hero-input:focus {
-  border-color: var(--accent-blue);
-}
-
-.hero-join-btn {
-  background: var(--accent-blue);
-  color: #0f172a;
-  border: none;
-  padding: 10px;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
-}
-
-.hero-join-btn:hover {
-  opacity: 0.9;
-}
-
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 16px;
-}
-
-.dialog-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  padding: 20px;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 300px;
-  text-align: center;
-}
-
-.dialog-title {
-  font-size: 16px;
-  margin-bottom: 8px;
-}
-
-.dialog-text {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 16px;
-}
-
-.dialog-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.cancel-btn, .confirm-logout-btn {
-  flex: 1;
-  padding: 8px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.cancel-btn {
-  background: var(--bg-main);
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-}
-
-.confirm-logout-btn {
-  background: #ef4444;
-  border: none;
-  color: white;
+  padding: 4px;
 }

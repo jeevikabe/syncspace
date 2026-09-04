@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import {
   Video, Mic, MicOff, VideoOff, ScreenShare, StopCircle,
   Paperclip, Download, Trash2, User, LogOut, Edit3, FileText,
-  Zap, AlertTriangle, PhoneOff, Eye, EyeOff, Image as ImageIcon
+  Zap, AlertTriangle, PhoneOff, Eye, EyeOff, LayoutGrid
 } from "lucide-react";
 import "./App.css";
 
@@ -34,7 +34,6 @@ function VideoPlayer({
   }, [stream, isScreen]);
 
   const effectiveVideoMuted = isVideoMuted === true || !stream || stream.getVideoTracks().length === 0;
-
   const cleanName = (username || "Peer").replace(" ( You )", "").replace(" (You)", "").trim();
   const initial = cleanName ? cleanName.charAt(0).toUpperCase() : "P";
 
@@ -90,6 +89,7 @@ export default function App() {
   const [receivedFiles, setReceivedFiles] = useState([]);
   const [notification, setNotification] = useState("");
   const [activeTab, setActiveTab] = useState("whiteboard");
+  const [mobileTab, setMobileTab] = useState("stage"); // 'stage' or 'workspace'
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
   const [remoteStreams, setRemoteStreams] = useState({});
@@ -504,8 +504,8 @@ export default function App() {
             </div>
             <div className="input-group">
               <label className="label">Password</label>
-              <div style={{ position: "relative", width: "100%" }}>
-                <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={authInputPass} onChange={(e) => setAuthInputPass(e.target.value)} className="input" style={{ width: "100%", paddingRight: "40px" }} required />
+              <div className="password-field-wrapper">
+                <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={authInputPass} onChange={(e) => setAuthInputPass(e.target.value)} className="input password-input" required />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="eye-btn">
                   {showPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
                 </button>
@@ -539,6 +539,17 @@ export default function App() {
         </div>
       </header>
 
+      {joined && (
+        <div className="mobile-view-toggle">
+          <button onClick={() => setMobileTab("stage")} className={`mobile-tab-btn ${mobileTab === "stage" ? "active" : ""}`}>
+            <LayoutGrid size={16} /> Video Stage
+          </button>
+          <button onClick={() => setMobileTab("workspace")} className={`mobile-tab-btn ${mobileTab === "workspace" ? "active" : ""}`}>
+            <Edit3 size={16} /> Workspace
+          </button>
+        </div>
+      )}
+
       {notification && (
         <div className="teams-toast-banner"><AlertTriangle size={16} color="#f59e0b" /><span>{notification}</span></div>
       )}
@@ -567,7 +578,7 @@ export default function App() {
           </div>
         </main>
       ) : (
-        <div className="workspace-layout show-video">
+        <div className={`workspace-layout ${mobileTab === "stage" ? "mobile-stage-active" : "mobile-workspace-active"}`}>
           <div className="stage-area">
             <div className="video-grid">
               <VideoPlayer stream={localStream} username={`${username} ( You )`} isSelf={true} isScreen={isScreenSharing} isVideoMuted={videoMuted} isAudioMuted={audioMuted} />
@@ -602,13 +613,12 @@ export default function App() {
               <button onClick={() => setActiveTab("files")} className={activeTab === "files" ? "tab-btn-active" : "tab-btn"}><FileText size={16} /> Files ({receivedFiles.length})</button>
             </div>
             <div className="tab-body">
-              {/* Whiteboard Tab - Dark Matte Surface */}
               <div style={{ display: activeTab === "whiteboard" ? "flex" : "none", flexDirection: "column", height: "100%" }}>
                 <div className="pane-controls">
                   <span className="pane-label">Interactive Canvas</span>
                   <button onClick={() => clearCanvas(true)} className="clear-btn"><Trash2 size={14} /> Clear</button>
                 </div>
-                <div className="canvas-wrapper" style={{ backgroundColor: "#0f172a", borderRadius: "8px", border: "1px solid #1e293b", overflow: "hidden" }}>
+                <div className="canvas-wrapper">
                   <canvas
                     ref={canvasRef}
                     width={600}
@@ -643,35 +653,20 @@ export default function App() {
                     }}
                     onTouchEnd={() => (isDrawing.current = false)}
                     className="canvas-element"
-                    style={{ backgroundColor: "#0f172a", display: "block", width: "100%", height: "100%", cursor: "crosshair" }}
                   />
                 </div>
               </div>
 
-              {/* Files Tab - Teams Minimalist Styling */}
               <div style={{ display: activeTab === "files" ? "flex" : "none", flexDirection: "column", height: "100%", gap: "12px" }} className="files-pane">
                 <div className="pane-controls"><span className="pane-label">Shared Assets</span></div>
                 {receivedFiles.length === 0 ? (
-                  <div className="empty-state" style={{ textAlign: "center", padding: "32px 16px", color: "#64748b", fontSize: "0.875rem" }}>
+                  <div style={{ textAlign: "center", padding: "32px 16px", color: "#64748b", fontSize: "0.875rem" }}>
                     No shared files in this session yet.
                   </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", overflowY: "auto", paddingRight: "4px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", overflowY: "auto" }}>
                     {receivedFiles.map((f) => (
-                      <div
-                        key={f.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          backgroundColor: "#1e293b",
-                          border: "1px solid #334155",
-                          borderRadius: "8px",
-                          padding: "12px 14px",
-                          transition: "border-color 0.2s ease, background-color 0.2s ease",
-                        }}
-                        className="teams-file-card"
-                      >
+                      <div key={f.id} className="teams-file-card">
                         <div style={{ display: "flex", alignItems: "center", gap: "12px", overflow: "hidden" }}>
                           {f.isImage ? (
                             <div style={{ width: "42px", height: "42px", borderRadius: "6px", overflow: "hidden", flexShrink: 0, border: "1px solid #475569" }}>
@@ -691,25 +686,7 @@ export default function App() {
                             </span>
                           </div>
                         </div>
-                        <a
-                          href={f.url}
-                          download={f.fileName}
-                          title={`Download ${f.fileName}`}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "34px",
-                            height: "34px",
-                            borderRadius: "6px",
-                            backgroundColor: "#334155",
-                            color: "#f8fafc",
-                            textDecoration: "none",
-                            transition: "background-color 0.2s",
-                            flexShrink: 0,
-                          }}
-                          className="teams-download-btn"
-                        >
+                        <a href={f.url} download={f.fileName} title={`Download ${f.fileName}`} className="teams-download-btn">
                           <Download size={16} />
                         </a>
                       </div>
